@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexora - Layanan Digital & Keuangan</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="futuristic-bg">
+        <div class="ambient-glow"></div><div class="cyber-grid"></div><div class="laser-drop laser-1"></div><div class="laser-drop laser-2"></div><div class="laser-drop laser-3"></div>
+    </div>
+
+    <!-- MODAL DETAIL PESANAN (ADMIN) -->
+    <div class="modal-overlay" id="order-detail-modal">
+        <div class="modal-box profile-modal-box" style="max-width: 520px !important;">
+            <h3 style="color: #00f2fe; margin-bottom: 15px; text-align: center;">DETAIL PESANAN</h3>
+            <div id="order-detail-content"></div>
+            <div class="close-modal" onclick="closeOrderDetailModal()" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup</div>
+        </div>
+    </div>
+
+    <!-- 1. CUSTOM ALERT MODAL -->
+    <div class="modal-overlay" id="custom-alert-modal">
+        <div class="modal-box" style="max-width: 350px;">
+            <div class="success-checkmark" style="width:60px; height:60px; font-size:1.5rem; color:#00f2fe; margin-bottom:15px; animation:none; box-shadow:0 0 15px rgba(0,242,254,0.3);">🔔</div>
+            <h3 style="color: #00f2fe; font-size: 1.2rem; margin-bottom: 10px;">PEMBERITAHUAN</h3>
+            <p id="custom-alert-msg" style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 25px; line-height:1.5;"></p>
+            <button type="button" class="btn-futuristic" onclick="document.getElementById('custom-alert-modal').classList.remove('active')" style="width: 100%; padding: 10px;">MENGERTI</button>
+        </div>
+    </div>
+
+    <!-- 2. CUSTOM CONFIRM MODAL -->
+    <div class="modal-overlay" id="custom-confirm-modal">
+        <div class="modal-box" style="max-width: 350px;">
+            <div class="success-checkmark" style="width:60px; height:60px; font-size:1.5rem; color:#ffaa00; border:2px solid #ffaa00; background:rgba(255,170,0,0.1); margin-bottom:15px; animation:none; box-shadow:0 0 15px rgba(255,170,0,0.3);">⚠️</div>
+            <h3 style="color: #ffaa00; font-size: 1.2rem; margin-bottom: 10px;">KONFIRMASI</h3>
+            <p id="custom-confirm-msg" style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 25px; line-height:1.5;"></p>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" class="btn-futuristic" id="btn-custom-confirm-yes" style="flex: 1; border-color: #ffaa00; color: #ffaa00; padding: 10px;">YA</button>
+                <button type="button" class="btn-futuristic" onclick="document.getElementById('custom-confirm-modal').classList.remove('active')" style="flex: 1; background: transparent; border-color: rgba(255,255,255,0.2); color: #fff; padding: 10px;">BATAL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. MODAL PENDAFTARAN BERHASIL -->
+    <div class="modal-overlay" id="success-modal">
+        <div class="modal-box" style="max-width: 400px; padding: 40px 30px;">
+            <div class="success-checkmark"><svg class="check-icon" viewBox="0 0 52 52" fill="none" stroke="#00f2fe" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 27l10 10L40 15" /></svg></div>
+            <h3 style="color: #00f2fe; margin-top: 20px; letter-spacing: 3px;">SUCCESS</h3>
+            <p id="success-msg-text" style="color: rgba(255,255,255,0.7); font-size: 0.95rem; line-height: 1.6; margin-bottom: 15px;"></p>
+            <p style="color: #ffaa00; font-size: 0.85rem; font-weight: bold; margin-bottom: 25px; letter-spacing: 1px;">*Harap Simpan Informasi Login kamu</p>
+            <button type="button" class="btn-futuristic" id="btn-close-success" style="width: 100%;">Lanjutkan</button>
+        </div>
+    </div>
+
+    <!-- 4, 5, 6. MODAL PEMBAYARAN MANUAL QRIS & REKENING DAPAT DISALIN -->
+    <div class="modal-overlay" id="payment-modal">
+        <div class="modal-box" style="max-width: 440px;">
+            <h3 style="color: #00f2fe; margin-bottom: 10px;">PEMBAYARAN NEXORA</h3>
+            <p style="color:rgba(255,255,255,0.7); font-size:0.85rem; margin-bottom:15px;">Scan QRIS atau transfer manual dengan 3 digit angka unik di bawah ini.</p>
+            
+            <div class="qris-box"><img src="QRIS NEXORA.png" alt="QRIS Nexora"></div>
+            
+            <!-- REVISI 4: Nominal dengan 3 digit unik & Bold -->
+            <div style="background: rgba(0, 242, 254, 0.08); border: 1px solid rgba(0, 242, 254, 0.3); border-radius: 12px; padding: 12px; margin-bottom: 15px; text-align: center;">
+                <span style="font-size: 0.8rem; color: rgba(255,255,255,0.6); display: block; margin-bottom: 3px;">TOTAL PEMBAYARAN (DENGAN KODE UNIK)</span>
+                <span id="qris-unique-amount" style="font-size: 1.5rem; font-weight: 800; color: #00f2fe; letter-spacing: 1px; cursor: pointer;" title="Klik untuk salin nominal" onclick="copyToClipboard(this.innerText)">Rp 0</span>
+                <span style="font-size: 0.7rem; color: #ffaa00; display: block; margin-top: 2px;">(Klik nominal untuk menyalin)</span>
+            </div>
+
+            <!-- REVISI 6: Rekening Tujuan Dapat Disalin (1 saja: BCA atau Seabank) -->
+            <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px;">
+                <div onclick="copyToClipboard('1330508503')" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; cursor: pointer; text-align: left; transition: all 0.3s;" title="Klik untuk salin No Rekening">
+                    <div style="font-size: 0.75rem; color: #00f2fe; font-weight: bold;">TRANSFER BCA (KLIK UNTUK SALIN)</div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #fff; letter-spacing: 1px;">1330508503 <span style="font-size: 0.8rem; font-weight: normal; color: rgba(255,255,255,0.7);">a.n Arief Gunawan</span></div>
+                </div>
+                <div onclick="copyToClipboard('901963429312')" style="background: rgba(0,0,0,0.4); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px; cursor: pointer; text-align: left; transition: all 0.3s;" title="Klik untuk salin No Rekening">
+                    <div style="font-size: 0.75rem; color: #ffaa00; font-weight: bold;">TRANSFER SEABANK (KLIK UNTUK SALIN)</div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #fff; letter-spacing: 1px;">901963429312 <span style="font-size: 0.8rem; font-weight: normal; color: rgba(255,255,255,0.7);">a.n Arief Gunawan</span></div>
+                </div>
+            </div>
+
+            <!-- REVISI 5: Tombol Konfirmasi WhatsApp Format Otomatis -->
+            <a id="btn-wa-order-confirm" href="#" target="_blank" class="btn-wa-confirm" style="text-decoration:none;">
+                KONFIRMASI VIA WHATSAPP
+            </a>
+            <div class="close-modal" onclick="document.getElementById('payment-modal').classList.remove('active')">Batal</div>
+        </div>
+    </div>
+
+    <!-- MODAL LUPA PASSWORD -->
+    <div class="modal-overlay" id="forgot-pass-modal">
+        <div class="modal-box">
+            <h3 style="color: #ffaa00; margin-bottom: 15px;">LUPA PASSWORD</h3>
+            <p style="color:rgba(255,255,255,0.7); font-size:0.85rem; margin-bottom:20px;">Masukkan data valid Anda untuk mereset password ke dalam sistem.</p>
+            <input type="text" id="fp-name" class="admin-input" placeholder="Nama Lengkap (Sesuai KTP) *">
+            <input type="text" id="fp-nik" class="admin-input" placeholder="NIK Anda *" maxlength="16" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+            <input type="password" id="fp-new-pass" class="admin-input" placeholder="Password Baru *">
+            <p class="error-msg" id="fp-error">Data tidak ditemukan! Pastikan Nama & NIK sesuai.</p>
+            <button type="button" id="btn-submit-fp" class="btn-futuristic" style="width: 100%; border-color: #ffaa00; color: #ffaa00; margin-bottom: 10px;">SUBMIT RESET</button>
+            <div class="close-modal" onclick="document.getElementById('forgot-pass-modal').classList.remove('active')">Batal</div>
+        </div>
+    </div>
+
+    <!-- MODAL PROFIL WORKER (ADMIN) -->
+    <div class="modal-overlay" id="worker-profile-modal">
+        <div class="modal-box profile-modal-box">
+            <div class="profile-header">
+                <div class="avatar-wrapper" style="width: 70px; height: 70px;"><div class="avatar-o" id="wp-avatar-img">O</div><div class="level-medal" id="wp-medal" style="width: 30px; height: 30px; font-size: 1rem; top: -5px; right: -5px;"></div></div>
+                <div><div class="profile-name" id="wp-name">-</div><div class="profile-id" id="wp-id">-</div></div>
+            </div>
+            <div class="profile-section"><div class="profile-label">Tempat, Tanggal Lahir</div><div class="profile-value" id="wp-ttl">-</div></div>
+            <div class="profile-section"><div class="profile-label">Waktu Bergabung</div><div class="profile-value" id="wp-joined">-</div></div>
+            <div class="profile-section"><div class="profile-label">Balance Belum Dicairkan</div><div class="profile-value" style="color: #00f2fe; font-size: 1.2rem;" id="wp-balance">Rp 0</div></div>
+            <div class="profile-section">
+                <div class="profile-label">Level Worker & Income</div>
+                <div class="level-badge" id="wp-level-badge">-</div>
+                <div class="progress-container"><div class="progress-fill" id="wp-progress-bar" style="width: 0%;"></div></div>
+                <div class="progress-info"><span id="wp-income-text">Rp 0</span><span id="wp-target-text">-</span></div>
+            </div>
+            <div class="profile-section">
+                <div class="profile-label">Status Saat Ini</div>
+                <div class="status-badge-wrap">
+                    <div class="level-badge" id="wp-status-badge" style="color: #fff;">Worker</div>
+                    <div class="alert-icon" id="wp-status-alert" style="display: none;">!</div>
+                    <div class="project-tooltip" id="wp-project-tooltip"><span style="color:#ff0055;">Project:</span> <span id="wp-proj-name"></span><br><span style="color:#00f2fe;">Cust:</span> <span id="wp-proj-cust"></span></div>
+                </div>
+            </div>
+            <div class="close-modal" id="close-worker-profile" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup Profil</div>
+        </div>
+    </div>
+
+    <!-- MODAL DOKUMEN WORKER (REVIEW ADMIN) -->
+    <div class="modal-overlay" id="worker-document-modal">
+        <div class="modal-box profile-modal-box" style="text-align: center !important;">
+            <h3 style="color: #00f2fe; margin-bottom: 25px; border-bottom: 1px solid rgba(0,242,254,0.2); padding-bottom:15px;">DOKUMEN MITRA</h3>
+            <div class="avatar-wrapper" style="width: 90px; height: 90px; margin: 0 auto 20px auto; display: block;"><div class="avatar-o" id="doc-avatar-img" style="font-size: 3rem; border-color:#ff0055; color:#ff0055; background:rgba(255,0,85,0.1);">O</div></div>
+            <div class="profile-section"><div class="profile-label">Nama Lengkap</div><div class="profile-value" id="doc-name">-</div></div>
+            <div class="profile-section" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 25px;" id="doc-contact-links"></div>
+            <div class="profile-section"><div class="profile-label">Spesialisasi</div><div class="profile-value" id="doc-specs" style="color: #00f2fe;">-</div></div>
+            <div class="profile-section"><div class="profile-label">Portofolio</div><div class="profile-value"><a href="#" id="doc-port" style="color:#fff;">-</a></div></div>
+            <div class="profile-section"><div class="profile-label">Rekening</div><div class="profile-value" id="doc-rek">-</div></div>
+            <div class="profile-section"><div class="profile-label">Username</div><div class="profile-value" id="doc-user">-</div></div>
+            <div id="doc-action-bar" style="display: none; justify-content: center; gap: 15px; margin-top: 25px; margin-bottom: 15px;"></div>
+            <div class="close-modal" id="close-worker-document" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup Dokumen</div>
+        </div>
+    </div>
+
+    <!-- MODAL PROFIL CUSTOMER (ADMIN) -->
+    <div class="modal-overlay" id="customer-profile-modal">
+        <div class="modal-box profile-modal-box">
+            <div class="profile-header">
+                <div class="avatar-wrapper" style="width: 70px; height: 70px;"><div class="avatar-o" id="cp-avatar-img">C</div><div class="level-medal" id="cp-medal" style="width: 30px; height: 30px; font-size: 1rem; top: -5px; right: -5px;"></div></div>
+                <div><div class="profile-name" id="cp-name">-</div><div class="profile-id" id="cp-id">-</div></div>
+            </div>
+            <div class="profile-section"><div class="profile-label">Tipe Akun</div><div class="profile-value" id="cp-type">-</div></div>
+            <div class="profile-section"><div class="profile-label">Waktu Bergabung</div><div class="profile-value" id="cp-joined">-</div></div>
+            <div class="profile-section"><div class="profile-label">Total Belanja (Spent)</div><div class="profile-value" style="color: #00f2fe; font-size: 1.2rem;" id="cp-spent">Rp 0</div></div>
+            <div class="profile-section">
+                <div class="profile-label">Level Customer & Diskon Tahunan</div>
+                <div class="level-badge" id="cp-level-badge">-</div>
+                <div class="progress-container"><div class="progress-fill" id="cp-progress-bar" style="width: 0%;"></div></div>
+                <div class="progress-info"><span id="cp-spent-text">Rp 0</span><span id="cp-target-text">-</span></div>
+            </div>
+            <div class="profile-section">
+                <div class="profile-label">Status Proyek Saat Ini</div>
+                <div class="status-badge-wrap">
+                    <div class="level-badge" id="cp-status-badge" style="color: #fff;">Active</div>
+                </div>
+                <div style="margin-top: 10px; font-size: 0.85rem; color: rgba(255,255,255,0.7);">Proyek: <strong id="cp-proj-name" style="color: #fff;">-</strong><br>Mitra/Worker: <strong id="cp-proj-worker" style="color: #00f2fe;">-</strong></div>
+            </div>
+            <div class="close-modal" id="close-customer-profile" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup Profil</div>
+        </div>
+    </div>
+
+    <!-- MODAL LOGIN USER (WORKER & CUSTOMER) -->
+    <div class="modal-overlay" id="user-login-modal">
+        <div class="modal-box">
+            <h3>LOGIN NEXORA</h3>
+            <p class="error-msg" id="user-login-error">ID Nexora atau Password salah!</p>
+            <input type="text" id="user-login-id" class="admin-input" placeholder="ID Nexora (NEXC-... / NEXW-...)" autocomplete="off">
+            <input type="password" id="user-login-pass" class="admin-input" placeholder="Password">
+            <button type="button" id="btn-user-login" class="btn-futuristic" style="padding: 12px 30px; font-size: 1rem; width: 100%;">Login</button>
+            <div class="divider"><span>ATAU</span></div>
+            <p class="toggle-text"><span id="user-login-forgot" style="color:#00f2fe; cursor:pointer;">Lupa Password?</span></p>
+            <p class="toggle-text">Belum punya akun? <span id="user-login-signup" style="color:#00f2fe; cursor:pointer;">Daftar Sekarang</span></p>
+            <div class="close-modal" id="close-user-login">Tutup</div>
+        </div>
+    </div>
+
+    <!-- MODAL PROFIL & AKTIVITAS USER (SETELAH LOGIN) -->
+    <div class="modal-overlay" id="user-profile-modal">
+        <div class="modal-box profile-modal-box">
+            <div class="profile-header">
+                <div class="avatar-wrapper" style="width: 70px; height: 70px;"><div class="avatar-o" id="up-avatar">O</div></div>
+                <div>
+                    <div class="profile-name" id="up-name">-</div>
+                    <div class="profile-id" id="up-id">-</div>
+                    <div class="level-badge" id="up-role" style="margin: 8px 0 0 0;">-</div>
+                </div>
+            </div>
+            <div id="up-body"></div>
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="button" class="btn-futuristic" id="btn-up-dashboard" style="flex: 1; padding: 10px; font-size: 0.85rem;">DASHBOARD PROFIL</button>
+                <button type="button" class="btn-logout" id="btn-up-logout" style="flex: 1; padding: 10px;">LOGOUT</button>
+            </div>
+            <div class="close-modal" id="close-user-profile" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px; margin-top: 15px;">Tutup</div>
+        </div>
+    </div>
+
+    <!-- MODAL TRANSAKSI MANUAL (LAPORAN KEUANGAN) -->
+    <div class="modal-overlay" id="fin-manual-modal">
+        <div class="modal-box" style="max-width: 440px;">
+            <h3 style="color: #00f2fe; margin-bottom: 15px;">TRANSAKSI MANUAL</h3>
+            <select id="fin-m-cat" class="admin-input">
+                <option value="20">Pengeluaran (kode 20)</option>
+                <option value="10">Pemasukan (kode 10)</option>
+                <option value="30">Hutang (kode 30)</option>
+                <option value="40">Laba (kode 40)</option>
+                <option value="50">Bagi Hasil (kode 50)</option>
+                <option value="90">Lainnya (kode 90)</option>
+            </select>
+            <input type="text" id="fin-m-name" class="admin-input" placeholder="Nama Produk / Keterangan *">
+            <input type="text" id="fin-m-ref" class="admin-input" placeholder="Kode Pesanan / ID Worker (opsional)">
+            <select id="fin-m-dir" class="admin-input">
+                <option value="keluar">Uang Keluar</option>
+                <option value="masuk">Uang Masuk</option>
+            </select>
+            <input type="text" inputmode="numeric" autocomplete="off" id="fin-m-amount" class="admin-input" placeholder="Nominal (Rp) *" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')">
+            <button type="button" id="btn-fin-m-save" class="btn-futuristic" style="width: 100%; margin-bottom: 10px;">SIMPAN TRANSAKSI</button>
+            <div class="close-modal" onclick="document.getElementById('fin-manual-modal').classList.remove('active')">Batal</div>
+        </div>
+    </div>
+
+    <!-- MODAL ADMIN LOGIN -->
+    <div class="modal-overlay" id="admin-modal">
+        <div class="modal-box">
+            <h3>ADMIN PORTAL</h3>
+            <p class="error-msg" id="login-error-admin">Akses Ditolak! Data tidak valid.</p>
+            <input type="text" id="admin-user" class="admin-input" placeholder="Username (admin)" autocomplete="off">
+            <input type="password" id="admin-pass" class="admin-input" placeholder="Password (admin)">
+            <button type="button" id="btn-auth-admin" class="btn-futuristic" style="padding: 12px 30px; font-size: 1rem; width: 100%;">Authorize</button>
+            <div class="close-modal" id="close-admin">Cancel</div>
+        </div>
+    </div>
+
+    <!-- MODAL CUSTOMER (LOGIN & DAFTAR MANUAL) -->
+    <div class="modal-overlay" id="customer-modal">
+        <div class="modal-box">
+            <h3 id="customer-modal-title">CUSTOMER LOGIN</h3>
+            <div id="customer-login-view">
+                <p class="error-msg" id="login-c-error">ID atau Password salah!</p>
+                <div class="input-group"><span class="prefix">NEXC-</span><input type="text" id="login-c-user" placeholder="ID Akun anda"></div>
+                <input type="password" id="login-c-pass" class="admin-input" placeholder="Password">
+                <button type="button" id="btn-login-customer" class="btn-futuristic" style="padding: 12px 30px; font-size: 1rem; width: 100%;">Login</button>
+                <div class="divider"><span>ATAU</span></div>
+                <p class="toggle-text"><span onclick="document.getElementById('forgot-pass-modal').classList.add('active'); document.getElementById('customer-modal').classList.remove('active');" style="color:#00f2fe; cursor:pointer;">Lupa Password?</span></p>
+                <p class="toggle-text">Belum memiliki akun? <span onclick="document.getElementById('customer-login-view').style.display='none'; document.getElementById('customer-signup-view').style.display='block'; document.getElementById('customer-modal-title').innerText='CUSTOMER SIGN UP';" style="color:#00f2fe; cursor:pointer;">Sign Up Sekarang</span></p>
+            </div>
+
+            <div id="customer-signup-view" style="display: none;">
+                <p style="color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 15px; margin-top: -10px;">Lengkapi identitas untuk pendaftaran manual Nexora.</p>
+                <input type="text" id="reg-c-nik" class="admin-input" placeholder="Nomor Induk Kependudukan (NIK) *" maxlength="16" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                <input type="text" id="reg-c-name" class="admin-input" placeholder="Nama Lengkap / Instansi *">
+                <input type="email" id="reg-c-email" class="admin-input" placeholder="Alamat Email Aktif *">
+                <div style="display:flex; gap:10px; margin-bottom: 15px;">
+                    <select id="reg-c-wa-code" class="admin-input" style="width: 100px; margin-bottom:0;"><option value="62">🇮🇩 +62</option><option value="60">🇲🇾 +60</option><option value="65">🇸🇬 +65</option></select>
+                    <input type="number" id="reg-c-wa-num" class="admin-input" placeholder="Nomor WA (812...)" style="flex:1; margin-bottom:0;">
+                </div>
+                <select id="reg-c-minat" class="admin-input">
+                    <option value="" disabled selected>-- Tujuan / Minat Layanan * --</option>
+                    <option value="Pembuatan Website">Pembuatan Website</option>
+                    <option value="Design & Animasi">Design & Animasi</option>
+                    <option value="Konsultasi Pajak / Audit">Konsultasi Pajak / Audit</option>
+                </select>
+                <input type="password" id="reg-c-pass" class="admin-input" placeholder="Buat Password Baru *">
+                
+                <div class="tnc-box" style="border-color: rgba(0,242,254,0.3);">
+                    <h4 style="color: #00f2fe;">PERJANJIAN LAYANAN CUSTOMER NEXORA</h4>
+                    <p><strong>Pasal 1 – Ruang Lingkup Layanan</strong><br>Nexora adalah platform perantara yang mempertemukan Customer dengan Mitra (Worker) terverifikasi untuk layanan Pembuatan Website, Design, Animasi, Pajak, Audit Finance, Produk Digital, dan E-Book. Seluruh pesanan diproses, dijadwalkan, dan dimonitor melalui sistem Nexora.</p>
+                    <p><strong>Pasal 2 – Pembayaran & Konfirmasi</strong><br>Pembayaran dilakukan melalui QRIS atau transfer ke rekening resmi Nexora sesuai nominal beserta 3 digit kode unik yang tertera, kemudian dikonfirmasi melalui tombol Konfirmasi WhatsApp. Pesanan baru tercatat di sistem Admin setelah konfirmasi dikirim. Proyek diproses setelah pembayaran Down Payment (DP) atau Full Payment diterima dan diverifikasi Admin.</p>
+                    <p><strong>Pasal 3 – Larangan Transaksi di Luar Platform</strong><br>Pelanggan dilarang keras melakukan transaksi, negosiasi harga, atau kesepakatan langsung dengan Mitra (Worker) di luar platform Nexora. Pelanggaran atas ketentuan ini dapat mengakibatkan pembekuan akun Customer, penghentian proyek, dan tidak adanya pengembalian dana atas transaksi yang terkait.</p>
+                    <p><strong>Pasal 4 – Jadwal & Deadline</strong><br>Tanggal mulai dan tanggal deadline pengerjaan ditetapkan oleh Admin Nexora dan dapat dilihat oleh Customer. Customer wajib menyerahkan brief, materi, dan data pendukung secara lengkap dan tepat waktu; keterlambatan penyerahan materi dari Customer dapat menggeser deadline. Keterlambatan dari sisi Mitra ditangani sesuai sanksi pada Perjanjian Mitra Nexora.</p>
+                    <p><strong>Pasal 5 – Revisi</strong><br>Setiap layanan memiliki batas revisi sesuai paket yang dipilih. Permintaan perubahan konsep secara total atau revisi yang melebihi batas yang disepakati dikenakan biaya tambahan (Extra Charge) dan jadwal pengerjaan akan disesuaikan.</p>
+                    <p><strong>Pasal 6 – Pembatalan Proyek</strong><br>Pembatalan proyek secara sepihak oleh Customer setelah pembayaran diterima atau setelah proses pengerjaan dimulai mengakibatkan DP hangus (Non-Refundable).</p>
+                    <p><strong>Pasal 7 – Hasil Pekerjaan & Hak Penggunaan</strong><br>Hak penggunaan hasil akhir pekerjaan diberikan kepada Customer setelah pembayaran lunas. Customer dilarang menggunakan, mempublikasikan, atau memperjualbelikan hasil pekerjaan sebelum pelunasan penuh dilakukan.</p>
+                    <p><strong>Pasal 8 – Level & Diskon Customer</strong><br>Customer memperoleh level berdasarkan total belanja (Spent) dengan diskon: NexMicro (s.d. Rp10 juta) 1%, NexMacro (s.d. Rp50 juta) 2%, NexSuper (s.d. Rp100 juta) 3%, NexMega (s.d. Rp500 juta) 4%, dan NexUltra (di atas Rp500 juta) 5%.</p>
+                    <p><strong>Pasal 9 – Komunikasi & Kerahasiaan</strong><br>Seluruh komunikasi terkait proyek wajib dilakukan melalui sistem Nexora dan terekam demi keamanan serta bukti bagi kedua belah pihak. Nexora menjaga kerahasiaan data pribadi Customer dan hanya menggunakannya untuk keperluan layanan.</p>
+                    <p><strong>Pasal 10 – Data & Keamanan Akun</strong><br>Customer menjamin data identitas yang didaftarkan (NIK, nama, email, nomor WhatsApp) adalah benar dan menjaga kerahasiaan username serta password. Seluruh aktivitas yang terjadi melalui akun menjadi tanggung jawab Customer.</p>
+                    <p><strong>Pasal 11 – Penyelesaian Sengketa</strong><br>Perselisihan diselesaikan terlebih dahulu secara musyawarah melalui Admin Nexora. Keputusan Manajemen Nexora atas interpretasi perjanjian ini bersifat final.</p>
+                </div>
+                <label class="agree-check"><input type="checkbox" id="reg-c-agree"> Saya menyetujui Perjanjian Layanan. *</label>
+                <button type="button" id="btn-reg-cust-submit" class="btn-futuristic" style="padding: 12px 30px; font-size: 1rem; width: 100%; margin-top: 5px;" disabled>Daftar Customer</button>
+                <p class="toggle-text">Sudah memiliki akun? <span onclick="document.getElementById('customer-signup-view').style.display='none'; document.getElementById('customer-login-view').style.display='block'; document.getElementById('customer-modal-title').innerText='CUSTOMER LOGIN';" style="color:#00f2fe; cursor:pointer;">Login</span></p>
+            </div>
+            <div class="close-modal" id="close-customer">Tutup</div>
+        </div>
+    </div>
+
+    <!-- MODAL WORKER (LOGIN & DAFTAR MANUAL) -->
+    <div class="modal-overlay" id="worker-modal">
+        <div class="modal-box">
+            <h3 id="worker-modal-title">WORKER LOGIN</h3>
+            <div id="worker-login-view">
+                <p class="error-msg" id="login-w-error">ID atau Password salah!</p>
+                <div class="input-group"><span class="prefix" style="color:#ff0055;">NEXW-</span><input type="text" id="login-w-user" placeholder="ID Akun anda"></div>
+                <input type="password" id="login-w-pass" class="admin-input" placeholder="Password">
+                <button type="button" id="btn-login-worker" class="btn-futuristic" style="border-color:#ff0055; color:#ff0055; padding: 12px 30px; font-size: 1rem; width: 100%;">Login</button>
+                <div class="divider"><span>ATAU</span></div>
+                <p class="toggle-text"><span onclick="document.getElementById('forgot-pass-modal').classList.add('active'); document.getElementById('worker-modal').classList.remove('active');" style="color:#ff0055; cursor:pointer;">Lupa Password?</span></p>
+                <p class="toggle-text">Belum menjadi mitra? <span onclick="document.getElementById('worker-login-view').style.display='none'; document.getElementById('worker-signup-view').style.display='block'; document.getElementById('worker-modal-title').innerText='WORKER SIGN UP';" style="color:#ff0055; cursor:pointer;">Apply Now</span></p>
+            </div>
+
+            <div id="worker-signup-view" style="display: none;">
+                <p style="color: rgba(255,255,255,0.7); font-size: 0.8rem; margin-bottom: 15px; margin-top: -10px;">Lengkapi seluruh berkas spesialisasi Anda di bawah ini.</p>
+                <input type="text" id="reg-w-nik" class="admin-input" placeholder="Nomor Induk Kependudukan (NIK) *" maxlength="16" oninput="this.value = this.value.replace(/[^0-9]/g, '')">
+                <input type="text" id="reg-w-name" class="admin-input" placeholder="Nama Lengkap (Sesuai KTP) *">
+                <input type="email" id="reg-w-email" class="admin-input" placeholder="Email Aktif *">
+                <div style="display:flex; gap:10px; margin-bottom: 15px;">
+                    <select id="reg-w-wa-code" class="admin-input" style="width: 100px; margin-bottom:0;"><option value="62">🇮🇩 +62</option><option value="60">🇲🇾 +60</option><option value="65">🇸🇬 +65</option></select>
+                    <input type="number" id="reg-w-wa-num" class="admin-input" placeholder="Nomor WA (812...)" style="flex:1; margin-bottom:0;">
+                </div>
+                <div style="display:flex; gap:10px; margin-bottom: 15px;">
+                    <input type="text" id="reg-w-tempat" class="admin-input" placeholder="Tempat Lahir *" style="flex:1; margin-bottom:0;">
+                    <input type="date" id="reg-w-dob" class="admin-input" style="flex:1; margin-bottom:0; padding: 10px;">
+                </div>
+                
+                <label class="file-upload-box" style="border-color: #ff0055; cursor: pointer; padding: 15px;">
+                    <span class="icon" style="margin-bottom:5px;">💳</span>
+                    <span id="ktp-filename-modal" style="font-size:0.8rem; color:#fff;">Upload Foto KTP / SIM Asli (Opsional)</span>
+                    <input type="file" style="display:none;" id="reg-w-ktp" accept="image/*" onchange="document.getElementById('ktp-filename-modal').innerText = this.files[0].name;">
+                </label>
+                
+                <p style="color: #fff; font-size: 0.85rem; margin-bottom: 10px; text-align: left;">Pilih Keahlian Utama *:</p>
+                <div class="checkbox-group">
+                    <label class="checkbox-label"><input type="checkbox" class="spec-checkbox" value="Web Dev"> Web Dev</label>
+                    <label class="checkbox-label"><input type="checkbox" class="spec-checkbox" value="UI/UX Design"> UI/UX Design</label>
+                    <label class="checkbox-label"><input type="checkbox" class="spec-checkbox" value="Animasi"> Animasi 3D/2D</label>
+                    <label class="checkbox-label"><input type="checkbox" class="spec-checkbox" value="Video Editor"> Video Editor</label>
+                    <label class="checkbox-label"><input type="checkbox" class="spec-checkbox" value="Graphic Design"> Graphic Design</label>
+                    <label class="checkbox-label"><input type="checkbox" class="spec-checkbox" value="Audit Pajak"> Audit & Pajak</label>
+                    <label class="checkbox-label"><input type="checkbox" class="spec-checkbox" id="spec-lainnya-cb" value="Lainnya"> Lainnya</label>
+                </div>
+                <input type="text" id="spec-lainnya-text" class="admin-input" placeholder="Sebutkan spesialisasi lainnya... *" style="display: none; margin-top: -5px; margin-bottom: 15px;">
+
+                <input type="url" id="reg-w-port" class="admin-input" placeholder="Link Portofolio (Behance/Drive) *">
+                
+                <div style="display:flex; gap:10px; margin-bottom: 10px;">
+                    <select id="reg-w-bank" class="admin-input" style="width: 40%; margin-bottom:0;">
+                        <option value="" disabled selected>-- Bank --</option>
+                        <option value="BCA">BCA</option>
+                        <option value="Mandiri">Mandiri</option>
+                        <option value="BNI">BNI</option>
+                        <option value="BRI">BRI</option>
+                        <option value="BSI">BSI</option>
+                        <option value="CIMB Niaga">CIMB Niaga</option>
+                        <option value="Permata">Permata</option>
+                        <option value="Danamon">Danamon</option>
+                        <option value="SeaBank">SeaBank</option>
+                        <option value="Bank Jago">Bank Jago</option>
+                        <option value="BNC">BNC / Neo Commerce</option>
+                        <option value="Jenius">Jenius / BTPN</option>
+                    </select>
+                    <input type="number" id="reg-w-rek" class="admin-input" placeholder="No Rekening *" style="width: 60%; margin-bottom:0;">
+                </div>
+                <input type="text" id="reg-w-rek-name" class="admin-input" placeholder="Atas Nama Rekening *" style="margin-bottom:15px;">
+
+                <input type="password" id="reg-w-pass" class="admin-input" placeholder="Buat Password Login *">
+
+                <div class="tnc-box" style="border-color: rgba(255,0,85,0.3);">
+                    <h4 style="color: #ff0055;">PERJANJIAN EKSKLUSIF MITRA NEXORA</h4>
+                    <p><strong>Pasal 1 – Status Kemitraan</strong><br>Pekerja (Worker) adalah mitra independen Nexora, bukan karyawan. Pekerjaan hanya boleh dikerjakan setelah Admin Nexora menugaskan pesanan secara resmi melalui ID Nexora Mitra dan status pesanan menjadi On Process.</p>
+                    <p><strong>Pasal 2 – Larangan Potong Kompas</strong><br>Pekerja dilarang keras melakukan kerja sama, komunikasi rahasia, atau transaksi pembayaran dengan klien di luar platform Nexora. Indikasi "potong kompas" akan mengakibatkan pembekuan akun (suspend) secara permanen, dan seluruh pembayaran atau Down Payment (DP) akan dihanguskan.</p>
+                    <p><strong>Pasal 3 – Deadline & Sanksi Keterlambatan</strong><br>Pekerja wajib menyelesaikan proyek sesuai deadline yang ditetapkan Admin. Pesanan yang selesai tepat waktu atau lebih cepat dinyatakan "Done". Ketentuan denda keterlambatan: Terlambat 1 Hari (Potongan 10%), Terlambat 2 Hari (Potongan 50% + Suspend 10 Hari), Terlambat 3 Hari (Potongan 50% + Suspend 20 Hari). Keterlambatan lebih dari 3 Hari dinyatakan "False" (pesanan gagal) dan sanksi lanjutan ditetapkan Manajemen Nexora.</p>
+                    <p><strong>Pasal 4 – Kualitas & Orisinalitas</strong><br>Seluruh hasil pekerjaan harus murni, orisinal, dan terbebas dari tuntutan plagiasi pihak manapun. Pekerja bertanggung jawab atas kualitas hasil akhir sesuai brief dan batas revisi yang disepakati.</p>
+                    <p><strong>Pasal 5 – Kerahasiaan Data</strong><br>Pekerja wajib menjaga kerahasiaan data internal klien dan Nexora, serta tidak membagikan, menyimpan, atau menggunakan data tersebut untuk kepentingan di luar proyek.</p>
+                    <p><strong>Pasal 6 – Pembagian Hasil & Level Mitra</strong><br>Skema pembagian hasil proyek adalah 80% untuk Pekerja (Worker) dan 20% untuk platform operasional Nexora. Mitra memperoleh bonus level berdasarkan total pendapatan: MicroXora (s.d. Rp10 juta) 5%, MacroXora (s.d. Rp50 juta) 6%, SuperXora (s.d. Rp100 juta) 7%, MegaXora (s.d. Rp500 juta) 8%, dan UltraXora (di atas Rp500 juta) 10%.</p>
+                    <p><strong>Pasal 7 – Pencairan Saldo</strong><br>Saldo hasil pekerjaan dicairkan oleh Admin ke rekening yang terdaftar. Nama pemilik rekening harus sesuai dengan identitas Mitra. Potongan akibat keterlambatan diperhitungkan sebelum pencairan.</p>
+                    <p><strong>Pasal 8 – Data & Verifikasi</strong><br>Pekerja menjamin seluruh data pendaftaran (NIK, identitas, portofolio, dan rekening) adalah benar. Data palsu atau menyesatkan dapat mengakibatkan penolakan pendaftaran atau pembekuan akun.</p>
+                    <p><strong>Pasal 9 – Pembekuan & Pemutusan Kemitraan</strong><br>Nexora berhak membekukan (suspend) atau memutus kemitraan atas pelanggaran perjanjian ini. Selama masa suspend, Pekerja tidak dapat menerima penugasan baru.</p>
+                    <p><strong>Pasal 10 – Hak Interpretasi</strong><br>Hak interpretasi atas kebijakan, pembatalan suspend, dan sanksi sepenuhnya adalah hak tunggal Manajemen Nexora dan tidak dapat diganggu gugat berdasarkan undang-undang hukum perdata Indonesia mengenai kerja sama kemitraan.</p>
+                </div>
+                <label class="agree-check"><input type="checkbox" id="reg-w-agree"> Saya menyetujui SLA dan Perjanjian Kerjasama. *</label>
+                <button type="button" id="btn-reg-worker-submit" class="btn-futuristic" style="border-color:#ff0055; color:#ff0055; padding: 12px 30px; font-size: 1rem; width: 100%; margin-bottom: 10px;" disabled>Daftar Sebagai Mitra</button>
+                <p class="toggle-text">Sudah memiliki akun? <span onclick="document.getElementById('worker-signup-view').style.display='none'; document.getElementById('worker-login-view').style.display='block'; document.getElementById('worker-modal-title').innerText='WORKER LOGIN';" style="color:#ff0055; cursor:pointer;">Login</span></p>
+            </div>
+            <div class="close-modal" id="close-worker">Tutup</div>
+        </div>
+    </div>
+
+
+    <!-- =============================================
+         SISTEM SPA MULTI-HALAMAN UTAMA
+         ============================================= -->
+    <div class="app-wrapper">
+        
+        <!-- HALAMAN 1 (MAIN WEB) -->
+        <div id="page-1" class="page-container slide-center-active">
+            <div class="admin-trigger" id="admin-btn" title="System Access"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg></div>
+            <div class="user-trigger" id="user-btn" title="Login"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></div>
+            
+            <div id="main-view-default" style="width: 100%;">
+                <header>
+                    <div class="logo-crop"><img src="logo nexora.svg" alt="Nexora Logo" class="logo-img" id="main-logo"></div>
+                    <p class="logo-subtitle"><span>B</span><span>e</span><span>y</span><span>o</span><span>n</span><span>d</span><span>&nbsp;</span><span>V</span><span>i</span><span>s</span><span>i</span><span>o</span><span>n</span><span>,</span><span>&nbsp;</span><span>I</span><span>n</span><span>t</span><span>o</span><span>&nbsp;</span><span>R</span><span>e</span><span>a</span><span>l</span><span>i</span><span>t</span><span>y</span></p>
+                </header>
+
+                <main class="glass-container">
+                    <div class="scene" id="scene">
+                        <div class="carousel" id="carousel">
+                            <div class="card" data-category="Design"><div class="icon">🎨</div><h3>Design</h3><p>UI/UX, Graphic & Branding Visual</p></div>
+                            <div class="card" data-category="Animasi"><div class="icon">✨</div><h3>Animasi</h3><p>Motion Graphic & 3D Animation</p></div>
+                            <div class="card" data-category="Pajak"><div class="icon">📑</div><h3>Pajak</h3><p>Konsultasi & Jasa Kepengurusan Pajak</p></div>
+                            <div class="card" data-category="Audit Finance"><div class="icon">📊</div><h3>Audit Finance</h3><p>Layanan Audit Keuangan Internal & Eksternal</p></div>
+                            <div class="card" data-category="Produk Digital"><div class="icon">📦</div><h3>Produk Digital</h3><p>Aset & Template Digital Siap Pakai</p></div>
+                            <div class="card" data-category="E-Book"><div class="icon">📚</div><h3>E-Book</h3><p>Koleksi Buku Digital Premium</p></div>
+                            <div class="card" data-category="Pembuatan Website"><div class="icon">🌐</div><h3>Pembuatan Website</h3><p>Jasa Pembuatan Website Profesional</p></div>
+                        </div>
+                    </div>
+                    <div class="swipe-instruction">GESER UNTUK MELIHAT MENU</div>
+                </main>
+
+                <div class="btn-wrapper"><button type="button" id="btn-regist" class="btn-futuristic">Join Now</button></div>
+
+                <div class="video-section">
+                    <h2 class="section-title">KARYA TERBARU KAMI</h2>
+                    <div class="video-grid" id="main-video-grid"></div>
+                </div>
+            </div>
+
+            <!-- Sub View Kategori Produk Utama -->
+            <div id="main-view-category" class="glass-container" style="display: none; min-height: 80vh; justify-content: flex-start;">
+                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,242,254,0.3); padding-bottom: 20px; margin-bottom: 20px;">
+                    <h2 id="main-cat-title" class="section-title" style="margin: 0; text-align: left;">KATEGORI</h2>
+                    <button class="btn-back-menu" onclick="closeMainCategory()">KEMBALI</button>
+                </div>
+                <div id="main-product-grid" class="product-grid"></div>
+            </div>
+
+            <!-- FOOTER HALAMAN UTAMA -->
+            <footer class="footer-text">
+                <p>About Us</p><strong>Nexora Digital Art</strong><em>Elevating Your Digital Presence</em>
+                <div class="social-links">
+                    <a href="https://www.youtube.com/@nexora.digitalart" target="_blank" title="YouTube"><svg class="social-icon" viewBox="0 0 24 24"><path d="M21.582,6.186c-0.23-0.86-0.908-1.538-1.768-1.768C18.254,4,12,4,12,4S5.746,4,4.186,4.418 c-0.86,0.23-1.538,0.908-1.768,1.768C2,7.746,2,12,2,12s0,4.254,0.418,5.814c0.23,0.86,0.908,1.538,1.768,1.768 C5.746,20,12,20,12,20s6.254,0,7.814-0.418c0.861-0.23,1.538-0.908,1.768-1.768C22,16.254,22,12,22,12S22,7.746,21.582,6.186z M10,15V9l5.2,3L10,15z"/></svg></a>
+                    <a href="https://www.instagram.com/nexora.digitalart" target="_blank" title="Instagram"><svg class="social-icon" viewBox="0 0 24 24"><path d="M12,2.163c3.204,0,3.584,0.012,4.85,0.07c1.366,0.062,2.633,0.342,3.608,1.317c0.975,0.975,1.255,2.242,1.317,3.608 c0.058,1.266,0.07,1.646,0.07,4.85s-0.012,3.584-0.07,4.85c-0.062,1.366-0.342,2.633-1.317,3.608 c-0.975,0.975-2.242,1.255-3.608,1.317c-1.266,0.058-1.646,0.07-4.85,0.07s-3.584-0.012-4.85-0.07 c-1.366-0.062-2.633-0.342-3.608-1.317c-0.975-0.975-1.255-2.242-1.317-3.608c-0.058-1.266-0.07-1.646-0.07-4.85 s0.012-3.584,0.07-4.85c0.062-1.366,0.342-2.633,1.317-3.608c0.975-0.975,2.242-1.255,3.608-1.317 C8.416,2.175,8.796,2.163,12,2.163 M12,0C8.741,0,8.333,0.014,7.053,0.072C5.775,0.132,4.905,0.333,4.14,0.63 c-0.789,0.306-1.459,0.717-2.126,1.384C1.347,2.681,0.936,3.351,0.63,4.14C0.333,4.905,0.132,5.775,0.072,7.053 C0.014,8.333,0,8.741,0,12c0,3.259,0.014,3.667,0.072,4.947c0.06,1.277,0.261,2.148,0.558,2.913 c0.306,0.789,0.717,1.459,1.384,2.126c0.667,0.666,1.336,1.077,2.126,1.384c0.766,0.296,1.636,0.499,2.913,0.558 C8.333,23.986,8.741,24,12,24c3.259,0,3.667-0.014,4.947-0.072c1.277-0.06,2.148-0.261,2.913-0.558 c0.789-0.306,1.459-0.718,2.126-1.384c0.666-0.667,1.077-1.336,1.384-2.126c0.296-0.766,0.499-1.636,0.558-2.913 C23.986,15.667,24,15.259,24,12c0-3.259-0.014-3.667-0.072-4.947c-0.06-1.277-0.261-2.148-0.558-2.913 c-0.306-0.789-0.718-1.459-1.384-2.126C20.854,1.347,20.185,0.936,19.396,0.63C18.63,0.333,17.759,0.132,16.482,0.072 C15.203,0.014,14.795,0,11.536,0L12,0z M12,5.838c-3.403,0-6.162,2.759-6.162,6.162c0,3.403,2.759,6.162,6.162,6.162 c3.403,0,6.162-2.759,6.162-6.162C18.162,8.597,15.403,5.838,12,5.838 M12,15.762c-2.077,0-3.762-1.685-3.762-3.762 c0-2.077,1.685-3.762,3.762-3.762c2.077,0,3.762,1.685,3.762,3.762C15.762,14.077,14.077,15.762,12,15.762 M18.406,4.155 c-0.884,0-1.6,0.716-1.6,1.6c0,0.884,0.716,1.6,1.6,1.6c0.884,0,1.6-0.716,1.6-1.6C20.006,4.871,19.29,4.155,18.406,4.155"/></svg></a>
+                    <a href="https://twitter.com/nexora.digitalart" target="_blank" title="X (Twitter)"><svg class="social-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg></a>
+                    <a href="https://wa.me/6285123532296" target="_blank" title="WhatsApp"><svg class="social-icon" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a>
+                </div>
+            </footer>
+        </div>
+
+        <!-- REVISI 2: HALAMAN 2 (CHOOSE YOUR ROLE) DENGAN HEADER & FOOTER SEPERTI HALAMAN UTAMA -->
+        <div id="page-2" class="page-container page-hidden" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; position: relative;">
+            
+            <header>
+                <div class="logo-crop"><img src="logo nexora.svg" alt="Nexora Logo" class="logo-img"></div>
+                <p class="logo-subtitle"><span>B</span><span>e</span><span>y</span><span>o</span><span>n</span><span>d</span><span>&nbsp;</span><span>V</span><span>i</span><span>s</span><span>i</span><span>o</span><span>n</span><span>,</span><span>&nbsp;</span><span>I</span><span>n</span><span>t</span><span>o</span><span>&nbsp;</span><span>R</span><span>e</span><span>a</span><span>l</span><span>i</span><span>t</span><span>y</span></p>
+            </header>
+
+            <main style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px;">
+                <h2 class="page-title">CHOOSE YOUR ROLE</h2>
+                
+                <div class="role-selection-container" style="margin-bottom: 30px;">
+                    <!-- Kartu Customer -->
+                    <div class="role-card" id="card-customer">
+                        <div class="icon">👥</div>
+                        <h3>Customer</h3>
+                        <p>Pesan layanan, pantau progres proyek, dan wujudkan visi bisnis Anda bersama kami.</p>
+                    </div>
+                    
+                    <!-- Kartu Worker -->
+                    <div class="role-card" id="card-worker">
+                        <div class="icon">🧑‍💻</div>
+                        <h3>Worker</h3>
+                        <p>Bergabung sebagai mitra ahli, kerjakan proyek, dan tingkatkan income Anda.</p>
+                    </div>
+                </div>
+
+                <!-- REVISI 4: Tombol Kembali Berada di Bawah Card -->
+                <div style="text-align: center; z-index: 10;">
+                    <button type="button" id="btn-back" class="btn-back-menu">&larr; KEMBALI</button>
+                </div>
+            </main>
+
+            <!-- REVISI 2: Footer About Us & Sosmed di Menu Choose Your Role -->
+            <footer class="footer-text">
+                <p>About Us</p><strong>Nexora Digital Art</strong><em>Elevating Your Digital Presence</em>
+                <div class="social-links">
+                    <a href="https://www.youtube.com/@nexora.digitalart" target="_blank" title="YouTube"><svg class="social-icon" viewBox="0 0 24 24"><path d="M21.582,6.186c-0.23-0.86-0.908-1.538-1.768-1.768C18.254,4,12,4,12,4S5.746,4,4.186,4.418 c-0.86,0.23-1.538,0.908-1.768,1.768C2,7.746,2,12,2,12s0,4.254,0.418,5.814c0.23,0.86,0.908,1.538,1.768,1.768 C5.746,20,12,20,12,20s6.254,0,7.814-0.418c0.861-0.23,1.538-0.908,1.768-1.768C22,16.254,22,12,22,12S22,7.746,21.582,6.186z M10,15V9l5.2,3L10,15z"/></svg></a>
+                    <a href="https://www.instagram.com/nexora.digitalart" target="_blank" title="Instagram"><svg class="social-icon" viewBox="0 0 24 24"><path d="M12,2.163c3.204,0,3.584,0.012,4.85,0.07c1.366,0.062,2.633,0.342,3.608,1.317c0.975,0.975,1.255,2.242,1.317,3.608 c0.058,1.266,0.07,1.646,0.07,4.85s-0.012,3.584-0.07,4.85c-0.062,1.366-0.342,2.633-1.317,3.608 c-0.975,0.975-2.242,1.255-3.608,1.317c-1.266,0.058-1.646,0.07-4.85,0.07s-3.584-0.012-4.85-0.07 c-1.366-0.062-2.633-0.342-3.608-1.317c-0.975-0.975-1.255-2.242-1.317-3.608c-0.058-1.266-0.07-1.646-0.07-4.85 s0.012-3.584,0.07-4.85c0.062-1.366,0.342-2.633,1.317-3.608c0.975-0.975,2.242-1.255,3.608-1.317 C8.416,2.175,8.796,2.163,12,2.163 M12,0C8.741,0,8.333,0.014,7.053,0.072C5.775,0.132,4.905,0.333,4.14,0.63 c-0.789,0.306-1.459,0.717-2.126,1.384C1.347,2.681,0.936,3.351,0.63,4.14C0.333,4.905,0.132,5.775,0.072,7.053 C0.014,8.333,0,8.741,0,12c0,3.259,0.014,3.667,0.072,4.947c0.06,1.277,0.261,2.148,0.558,2.913 c0.306,0.789,0.717,1.459,1.384,2.126c0.667,0.666,1.336,1.077,2.126,1.384c0.766,0.296,1.636,0.499,2.913,0.558 C8.333,23.986,8.741,24,12,24c3.259,0,3.667-0.014,4.947-0.072c1.277-0.06,2.148-0.261,2.913-0.558 c0.789-0.306,1.459-0.718,2.126-1.384c0.666-0.667,1.077-1.336,1.384-2.126c0.296-0.766,0.499-1.636,0.558-2.913 C23.986,15.667,24,15.259,24,12c0-3.259-0.014-3.667-0.072-4.947c-0.06-1.277-0.261-2.148-0.558-2.913 c-0.306-0.789-0.718-1.459-1.384-2.126C20.854,1.347,20.185,0.936,19.396,0.63C18.63,0.333,17.759,0.132,16.482,0.072 C15.203,0.014,14.795,0,11.536,0L12,0z M12,5.838c-3.403,0-6.162,2.759-6.162,6.162c0,3.403,2.759,6.162,6.162,6.162 c3.403,0,6.162-2.759,6.162-6.162C18.162,8.597,15.403,5.838,12,5.838 M12,15.762c-2.077,0-3.762-1.685-3.762-3.762 c0-2.077,1.685-3.762,3.762-3.762c2.077,0,3.762,1.685,3.762,3.762C15.762,14.077,14.077,15.762,12,15.762 M18.406,4.155 c-0.884,0-1.6,0.716-1.6,1.6c0,0.884,0.716,1.6,1.6,1.6c0.884,0,1.6-0.716,1.6-1.6C20.006,4.871,19.29,4.155,18.406,4.155"/></svg></a>
+                    <a href="https://twitter.com/nexora.digitalart" target="_blank" title="X (Twitter)"><svg class="social-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M18.901 1.153h3.68l-8.04 9.19L24 22.846h-7.406l-5.8-7.584-6.638 7.584H.474l8.6-9.83L0 1.154h7.594l5.243 6.932ZM17.61 20.644h2.039L6.486 3.24H4.298Z"/></svg></a>
+                    <a href="https://wa.me/6285123532296" target="_blank" title="WhatsApp"><svg class="social-icon" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg></a>
+                </div>
+            </footer>
+        </div>
+
+        <!-- HALAMAN 3 (ADMIN PORTAL & CMS KONTEN + REVISI 7: MENU PESANAN) -->
+        <div id="page-3" class="page-container page-hidden">
+            <div class="portal-topbar">
+                <div class="portal-logo-wrap"><div class="portal-logo-crop"><img src="logo nexora.svg" class="portal-logo-img"></div></div>
+                <button type="button" id="btn-logout-admin" class="btn-logout">LOGOUT</button>
+            </div>
+            
+            <div class="admin-notif-area" id="admin-notifications" style="display: none;">
+                <h3 style="color: #0b1120; font-size: 1rem; margin-bottom: 10px; background: rgba(0, 242, 254, 0.8); padding: 5px 15px; display: inline-block; border-radius: 5px;">NOTIFIKASI BARU:</h3>
+                <div id="notif-list"></div>
+            </div>
+            
+            <!-- CAROUSEL ADMIN MENU (REVISI 7: Penambahan Menu Pesanan) -->
+            <div id="admin-carousel-view" class="admin-glass-container">
+                <h2 class="admin-page-title">Admin Portal Dashboard</h2>
+                <div class="admin-scene" id="admin-scene">
+                    <div class="admin-carousel" id="admin-carousel">
+                        <div class="admin-card" id="btn-menu-orders"><div class="icon">📦</div><h3>Pesanan</h3><p>Kelola pesanan masuk & konfirmasi pembayaran.</p><div id="order-badge-notif" style="position: absolute; top: 15px; right: 15px; background: #ff0055; color: #fff; border-radius: 50%; width: 25px; height: 25px; display: none; justify-content: center; align-items: center; font-size: 0.75rem; font-weight: bold;">0</div></div>
+                        <div class="admin-card" id="btn-menu-worker"><div class="icon">🧑‍💻</div><h3>Data Worker</h3><p>Manajemen Mitra, Level, Saldo Pocket, & Status Akun.</p></div>
+                        <div class="admin-card" id="btn-menu-customer"><div class="icon">👥</div><h3>Data Customer</h3><p>Database Pelanggan & Status Proyek.</p></div>
+                        <div class="admin-card" id="btn-menu-content"><div class="icon">🎬</div><h3>Management Konten</h3><p>Upload & Pin Video Katalog.</p></div>
+                        <div class="admin-card" id="btn-menu-finance"><div class="icon">💰</div><h3>Laporan Keuangan</h3><p>Pemasukan, pengeluaran, bagi hasil & total income.</p></div>
+                    </div>
+                </div>
+                <div class="admin-swipe-instruction">GESER UNTUK MELIHAT MENU ADMIN</div>
+            </div>
+
+            <!-- TAMPILAN KELOLA PESANAN (REVISI 7) -->
+            <div id="admin-orders-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">DAFTAR PESANAN MASUK</h2>
+                        <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-orders-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+                    <div class="data-table-wrapper">
+                        <table class="data-table">
+                            <thead><tr><th>ID PESANAN</th><th>NAMA PRODUK</th><th>NOMINAL TRANSFER</th><th>TANGGAL MULAI &amp; DEADLINE</th><th>STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
+                            <tbody id="orders-table-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAMPILAN LAPORAN KEUANGAN -->
+            <div id="admin-finance-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">LAPORAN KEUANGAN</h2>
+                        <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-finance-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+                    <div class="fin-summary" id="fin-summary"></div>
+                    <div style="margin-bottom: 15px; position: relative; z-index: 100;">
+                        <button type="button" class="btn-futuristic" id="btn-fin-add" style="padding: 8px 20px; font-size: 0.85rem;">+ TRANSAKSI MANUAL</button>
+                    </div>
+                    <div class="data-table-wrapper">
+                        <table class="data-table" style="min-width: 1200px;">
+                            <thead><tr><th style="width: 50px;">NO.</th><th>ID KEUANGAN</th><th>TANGGAL</th><th>NAMA PRODUK</th><th>KODE PESANAN / ID WORKER</th><th>UANG MASUK</th><th>UANG KELUAR</th><th style="text-align:center;">BAGI HASIL</th><th>TOTAL INCOME</th><th style="width: 50px;"></th></tr></thead>
+                            <tbody id="finance-table-tbody"></tbody>
+                            <tfoot id="finance-table-tfoot"></tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAMPILAN CMS MANAGEMENT KONTEN -->
+            <div id="admin-manage-content-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">MANAGEMENT KONTEN</h2>
+                        <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-manage-content-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+
+                    <!-- Slider Kategori CMS -->
+                    <div class="cms-category-slider">
+                        <button class="cms-cat-btn active" id="cms-tab-video" onclick="switchCMSTab('video')">Video Konten</button>
+                        <button class="cms-cat-btn" id="cms-tab-Design" onclick="switchCMSTab('Design')">Design</button>
+                        <button class="cms-cat-btn" id="cms-tab-Animasi" onclick="switchCMSTab('Animasi')">Animasi</button>
+                        <button class="cms-cat-btn" id="cms-tab-Pajak" onclick="switchCMSTab('Pajak')">Pajak</button>
+                        <button class="cms-cat-btn" id="cms-tab-Audit Finance" onclick="switchCMSTab('Audit Finance')">Audit Finance</button>
+                        <button class="cms-cat-btn" id="cms-tab-Produk Digital" onclick="switchCMSTab('Produk Digital')">Produk Digital</button>
+                        <button class="cms-cat-btn" id="cms-tab-E-Book" onclick="switchCMSTab('E-Book')">E-Book</button>
+                        <button class="cms-cat-btn" id="cms-tab-Pembuatan Website" onclick="switchCMSTab('Pembuatan Website')">Pembuatan Web</button>
+                    </div>
+
+                    <!-- LIST VIDEO -->
+                    <div id="content-list-view" style="width: 100%; text-align: center;">
+                        <div class="file-upload-box" id="btn-add-video" style="border-color: #00f2fe; color: #00f2fe; border-style: dashed; padding: 40px; margin-bottom: 20px;">
+                            <span class="icon">➕</span>
+                            <span style="font-weight: bold; font-size: 1.2rem;">Tambahkan Konten Video</span>
+                        </div>
+                        <div id="admin-video-list" class="video-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+                    </div>
+
+                    <!-- UPLOAD VIDEO FORM -->
+                    <div id="content-upload-view" style="display: none; width: 100%; text-align: left;">
+                        <h3 id="form-vid-title" style="color:#00f2fe; margin-bottom:20px;">UPLOAD VIDEO BARU</h3>
+                        <label class="vid-upload-label" style="margin-bottom: 20px;">
+                            <span class="icon">📁</span>
+                            <span class="txt" id="up-vid-filename">Klik disini untuk memilih File MP4</span>
+                            <input type="file" id="up-vid-file" accept="video/mp4,video/x-m4v,video/*" style="display: none;" onchange="document.getElementById('up-vid-filename').innerText = this.files[0].name;">
+                        </label>
+                        <div class="form-grid">
+                            <div class="form-group full-width"><label>Judul Video <span class="req">*</span></label><input type="text" id="up-vid-title" class="setup-input" placeholder="Masukkan Judul (Maks 30 Karakter)" maxlength="30"></div>
+                            <div class="form-group"><label>Pilih Badge / Ikon</label><select id="up-vid-badge" class="setup-input"><option value="">Tanpa Badge</option><option value="NEW">Label NEW</option><option value="1">🔥 1 Api (Hot)</option><option value="2">🔥🔥 2 Api (Trending)</option><option value="3">🔥🔥🔥 3 Api (Viral)</option></select></div>
+                            <div class="form-group"><label>Pin Teratas? (Otomatis Expired)</label><label class="agree-check" style="justify-content:flex-start; margin-top:10px;"><input type="checkbox" id="up-vid-ispin"> Aktifkan Pin Video Scheduler</label></div>
+                            <div class="form-group pin-date-group" style="display:none;"><label>Waktu Mulai Pin <span class="req">*</span></label><input type="datetime-local" id="up-vid-start" class="setup-input"></div>
+                            <div class="form-group pin-date-group" style="display:none;"><label>Waktu Berakhir Pin <span class="req">*</span></label><input type="datetime-local" id="up-vid-end" class="setup-input"></div>
+                        </div>
+                        <button type="button" id="btn-submit-video" class="btn-futuristic" style="width:100%; margin-top:20px;" disabled>SIMPAN VIDEO KONTEN</button>
+                        <button type="button" class="btn-futuristic" style="width:100%; margin-top:10px; background:transparent; color:#ff0055; border-color:#ff0055;" onclick="document.getElementById('content-upload-view').style.display='none'; document.getElementById('content-list-view').style.display='block';">BATAL</button>
+                    </div>
+
+                    <!-- LIST PRODUK -->
+                    <div id="product-list-view" style="display: none; width: 100%; text-align: center;">
+                        <div class="file-upload-box" id="btn-add-product" style="border-color: #00f2fe; color: #00f2fe; border-style: dashed; padding: 40px; margin-bottom: 20px;">
+                            <span class="icon">➕</span>
+                            <span style="font-weight: bold; font-size: 1.2rem;">Tambahkan Produk Kategori <span id="lbl-active-product-cat"></span></span>
+                        </div>
+                        <div id="admin-product-list" class="product-grid"></div>
+                    </div>
+
+                    <!-- UPLOAD PRODUK FORM -->
+                    <div id="product-upload-view" style="display: none; width: 100%; text-align: left;">
+                        <h3 id="form-prod-title" style="color:#00f2fe; margin-bottom:20px;">UPLOAD PRODUK BARU</h3>
+                        <label class="vid-upload-label" style="margin-bottom: 20px;">
+                            <span class="icon">🖼️</span>
+                            <span class="txt" id="up-prod-filename">Pilih Foto Produk (Wajib 1:1 / Kotak)</span>
+                            <input type="file" id="up-prod-file" accept="image/*" style="display: none;" onchange="document.getElementById('up-prod-filename').innerText = this.files[0].name;">
+                        </label>
+                        <div class="form-grid">
+                            <div class="form-group full-width"><label>Nama Produk / Jasa <span class="req">*</span></label><input type="text" id="up-prod-name" class="setup-input" placeholder="Cth: Logo Esport Premium"></div>
+                            <div class="form-group"><label>Estimasi Harga (Opsional)</label><input type="text" inputmode="numeric" autocomplete="off" id="up-prod-price" class="setup-input" placeholder="Kosongkan jika harga custom" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')"></div>
+                            <div class="form-group"><label>Link Eksternal (Opsional)</label><input type="url" id="up-prod-link" class="setup-input" placeholder="https://... (Kosongkan untuk QRIS Manual)"></div>
+                        </div>
+                        <button type="button" id="btn-submit-product" class="btn-futuristic" style="width:100%; margin-top:20px;" disabled>SIMPAN PRODUK KONTEN</button>
+                        <button type="button" class="btn-futuristic" style="width:100%; margin-top:10px; background:transparent; color:#ff0055; border-color:#ff0055;" onclick="document.getElementById('product-upload-view').style.display='none'; document.getElementById('product-list-view').style.display='block';">BATAL</button>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TAMPILAN DATA WORKER -->
+            <div id="admin-data-worker-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">DATA WORKER</h2>
+                        <button type="button" id="btn-back-to-admin-menu-worker" class="btn-back-menu" onclick="document.getElementById('admin-data-worker-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+                    <div class="admin-tabs">
+                        <button type="button" class="admin-tab active" id="tab-active" onclick="switchWorkerTab('active')">Mitra Aktif & Freeze</button>
+                        <button type="button" class="admin-tab" id="tab-declined" onclick="switchWorkerTab('declined')">Mitra Ditolak</button>
+                    </div>
+                    <div class="data-table-wrapper">
+                        <table class="data-table">
+                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID WORKER</th><th>NAMA WORKER</th><th>LEVEL WORKER</th><th>STATUS (ADJUST)</th><th style="text-align: center; width: 120px;">AKSI</th></tr></thead>
+                            <tbody id="worker-list-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAMPILAN DATA CUSTOMER -->
+            <div id="admin-data-customer-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">DATA CUSTOMER</h2>
+                        <button type="button" id="btn-back-to-admin-menu-cust" class="btn-back-menu" onclick="document.getElementById('admin-data-customer-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+                    <div class="admin-tabs">
+                        <button type="button" class="admin-tab active" id="tab-cust-active" onclick="switchCustTab('active')">Pelanggan Aktif / Hold</button>
+                        <button type="button" class="admin-tab" id="tab-cust-completed" onclick="switchCustTab('completed')">Selesai / Batal</button>
+                    </div>
+                    <div class="data-table-wrapper">
+                        <table class="data-table">
+                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID CUSTOMER</th><th>NAMA / BISNIS</th><th>LEVEL PELANGGAN</th><th>STATUS (ADJUST)</th></tr></thead>
+                            <tbody id="customer-list-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HALAMAN 4 (CUSTOMER PROFILE DASHBOARD) -->
+        <div id="page-4" class="page-container page-hidden">
+            <div class="portal-topbar">
+                <div class="portal-logo-wrap"><div class="portal-logo-crop"><img src="logo nexora.svg" class="portal-logo-img"></div></div>
+                <button type="button" id="btn-logout-customer" class="btn-logout" style="border-color: #00f2fe; color: #00f2fe;">LOGOUT</button>
+            </div>
+            
+            <div class="profile-dashboard">
+                <h2>CUSTOMER PROFIL</h2>
+                <p class="subtitle">Pantau dan kelola data akun pelanggan Anda di sini.</p>
+                
+                <div class="profile-avatar-upload">
+                    <label class="avatar-circle" style="cursor:pointer;" id="c-avatar-preview">
+                        <span id="c-avatar-text">📷</span>
+                        <input type="file" id="up-cust-avatar" accept="image/*" style="display:none;" onchange="handleAvatarUpload(this, 'c-avatar-preview', 'c-avatar-text')">
+                    </label>
+                    <span style="font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 10px;">Upload Foto Profil (Opsional)</span>
+                </div>
+
+                <div class="form-grid">
+                    <div class="form-group"><label>ID Nexora</label><input type="text" id="dash-c-id" class="setup-input" disabled value="NEXC-XXXXXX"></div>
+                    <div class="form-group"><label>Nomor Induk Kependudukan (NIK)</label><input type="text" id="dash-c-nik" class="setup-input" disabled></div>
+                    <div class="form-group"><label>Nama Lengkap / Instansi</label><input type="text" id="dash-c-name" class="setup-input"></div>
+                    <div class="form-group"><label>Email Aktif</label><input type="email" id="dash-c-email" class="setup-input"></div>
+                    <div class="form-group"><label>Nomor WhatsApp</label><input type="text" id="dash-c-wa" class="setup-input"></div>
+                    <div class="form-group"><label>Status Proyek</label><input type="text" id="dash-c-status" class="setup-input" disabled value="Menunggu Tinjauan Admin" style="color:#ffaa00; font-weight:bold;"></div>
+                </div>
+
+                <button type="button" id="btn-dash-save-cust" class="btn-futuristic" style="width: 100%; margin-top: 15px;" disabled onclick="saveProfileChanges('customer')">SIMPAN PERUBAHAN</button>
+            </div>
+        </div>
+
+        <!-- HALAMAN 5 (WORKER PROFILE DASHBOARD) -->
+        <div id="page-5" class="page-container page-hidden">
+            <div class="portal-topbar">
+                <div class="portal-logo-wrap"><div class="portal-logo-crop"><img src="logo nexora.svg" class="portal-logo-img"></div></div>
+                <button type="button" id="btn-logout-worker" class="btn-logout" style="border-color: #ff0055; color: #ff0055;">LOGOUT</button>
+            </div>
+            
+            <div class="profile-dashboard worker-theme">
+                <h2>WORKER PROFIL</h2>
+                <p class="subtitle">Sesuaikan tampilan katalog dan atur penerimaan job Anda.</p>
+                
+                <div class="profile-avatar-upload">
+                    <label class="avatar-circle" style="cursor:pointer;" id="w-avatar-preview">
+                        <span id="w-avatar-text">📷</span>
+                        <input type="file" id="up-work-avatar" accept="image/*" style="display:none;" onchange="handleAvatarUpload(this, 'w-avatar-preview', 'w-avatar-text')">
+                    </label>
+                    <span style="font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 10px;">Upload Pas Foto Profesional Tampilan Katalog</span>
+                </div>
+
+                <button type="button" id="btn-dash-save-worker" class="btn-futuristic" style="border-color:#ff0055; color:#ff0055; width: 100%; margin-top: 15px;" disabled onclick="saveProfileChanges('worker')">SIMPAN PERUBAHAN</button>
+            </div>
+        </div>
+
+    </div>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
