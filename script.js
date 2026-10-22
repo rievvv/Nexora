@@ -1,4 +1,4 @@
-/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, adminDB_Login, calculateLevel, calculateCustomerLevel, formatRp */
+/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, adminDB_Login, calculateLevel, calculateCustomerLevel, formatRp */
 
 document.addEventListener('DOMContentLoaded', () => {
 
@@ -56,6 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     window.navigateTo = function(targetPageId, direction = 'forward') {
         if (isAnimating || currentPageId === targetPageId) return;
         isAnimating = true;
+        if (typeof updateChatWidget === 'function') updateChatWidget(targetPageId);
 
         const pageOut = document.getElementById(currentPageId);
         const pageIn = document.getElementById(targetPageId);
@@ -105,6 +106,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Klik logo Nexora / tombol Menu Utama -> kembali ke halaman utama
+    function goHome() {
+        if (currentPageId !== 'page-1') { navigateTo('page-1', 'backward'); }
+        else { closeMainCategory(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    }
+    document.querySelectorAll('.logo-crop, .portal-logo-wrap').forEach(el => { el.title = 'Kembali ke Menu Utama'; });
+    document.addEventListener('click', function(e) {
+        if (!e.target || !e.target.closest) return;
+        if (e.target.closest('.logo-crop, .portal-logo-wrap') || e.target.closest('.btn-home')) goHome();
+    });
+
     /* =========================================
        AUTHENTIKASI ADMIN & RESET VIEW LOGOUT
        ========================================= */
@@ -137,7 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('admin-orders-view').style.display = 'none';
             document.getElementById('admin-data-worker-view').style.display = 'none';
             document.getElementById('admin-data-customer-view').style.display = 'none';
-            document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none';
+            document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none';
 
             try { renderAdminNotifications(); updateOrderBadge(); } catch(err) {}
             
@@ -158,7 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('admin-orders-view').style.display = 'none';
         document.getElementById('admin-data-worker-view').style.display = 'none';
         document.getElementById('admin-data-customer-view').style.display = 'none';
-        document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none';
+        document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none';
         navigateTo('page-1', 'backward'); 
     });
 
@@ -169,6 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewDataCustomer = document.getElementById('admin-data-customer-view');
     const viewManageContent = document.getElementById('admin-manage-content-view');
     const viewFinance = document.getElementById('admin-finance-view');
+    const viewChat = document.getElementById('admin-chat-view');
 
     document.addEventListener('click', function(e) {
         if (e.target && e.target.id === 'btn-menu-orders') { 
@@ -181,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target && e.target.id === 'btn-menu-customer') { viewCarousel.style.display = 'none'; viewDataCustomer.style.display = 'flex'; renderCustomerTable(); }
         if (e.target && e.target.id === 'btn-menu-content') { viewCarousel.style.display = 'none'; viewManageContent.style.display = 'flex'; switchCMSTab('video'); }
         if (e.target && e.target.id === 'btn-menu-finance') { viewCarousel.style.display = 'none'; viewFinance.style.display = 'flex'; renderFinanceTable(); }
+        if (e.target && e.target.id === 'btn-menu-chat') { viewCarousel.style.display = 'none'; viewChat.style.display = 'flex'; renderAdminChatList(); }
     });
 
     /* =========================================
@@ -429,7 +443,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!w) {
             customAlert('Pesanan diatur ke On Process. Perhatian: ID <strong>' + escHtml(v) + '</strong> tidak ditemukan di Data Worker.');
         } else if (w.status === 'On Progress') {
-            customAlert('Pesanan diatur ke On Process.<br>Worker <strong>' + escHtml(w.name) + '</strong> (' + escHtml(w.id) + ') kini berstatus <strong>On Progress</strong> dengan ID Pesanan <strong>' + escHtml(o.id) + '</strong>.');
+            customAlert('Pesanan diatur ke On Process.<br>Worker <strong>' + escHtml(w.name) + '</strong> (' + escHtml(w.id) + ') kini berstatus <strong>On Progress</strong> dengan ID Pesanan <strong>' + escHtml(o.id) + '</strong>.' + (w.availability === 'off' ? '<br><span style="color:#ffaa00;">Catatan: worker menandai dirinya Tidak Menerima Job.</span>' : ''));
         } else {
             customAlert('Pesanan diatur ke On Process. Status worker <strong>' + escHtml(w.name) + '</strong> tetap <strong>' + escHtml(w.status) + '</strong> (tidak diubah).');
         }
@@ -659,6 +673,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('content-upload-view').style.display = 'none';
         document.getElementById('product-upload-view').style.display = 'none';
+        document.getElementById('banner-manage-view').style.display = 'none';
+
+        if(category === 'banner') {
+            document.getElementById('content-list-view').style.display = 'none';
+            document.getElementById('product-list-view').style.display = 'none';
+            document.getElementById('banner-manage-view').style.display = 'block';
+            renderAdminBanners();
+            return;
+        }
 
         if(category === 'video') {
             document.getElementById('content-list-view').style.display = 'block';
@@ -1023,24 +1046,70 @@ document.addEventListener('DOMContentLoaded', () => {
        ========================================= */
     let currentTempAvatarUrl = ""; 
 
+    function setAvatarPreview(previewId, textId, url) {
+        const box = document.getElementById(previewId);
+        if (!box) return;
+        let img = box.querySelector('img.avatar-image-fill');
+        const t = document.getElementById(textId);
+        if (url) {
+            if (!img) { img = document.createElement('img'); img.className = 'avatar-image-fill'; box.insertBefore(img, box.firstChild); }
+            img.src = url; box.style.borderStyle = 'solid'; if (t) t.style.display = 'none';
+        } else {
+            if (img) img.remove();
+            box.style.borderStyle = ''; if (t) t.style.display = '';
+        }
+    }
+
     window.handleAvatarUpload = function(input, previewId, textId) {
         if (input.files && input.files[0]) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 currentTempAvatarUrl = e.target.result;
-                const container = document.getElementById(previewId);
-                container.innerHTML = `<img src="${currentTempAvatarUrl}" class="avatar-image-fill">`;
-                container.style.borderStyle = 'solid';
-            }
+                setAvatarPreview(previewId, textId, currentTempAvatarUrl);
+                const btn = document.getElementById(previewId === 'c-avatar-preview' ? 'btn-dash-save-cust' : 'btn-dash-save-worker');
+                if (btn) btn.disabled = false;
+            };
             reader.readAsDataURL(input.files[0]);
         }
     };
 
+    // Simpan profil (Customer & Worker) ke database -> terlihat juga di Admin Portal
     window.saveProfileChanges = function(role) {
         const rec = getCurrentRecord();
-        if (rec && currentTempAvatarUrl) { rec.avatar = currentTempAvatarUrl; updateUserTrigger(); }
-        currentTempAvatarUrl = ""; 
-        customAlert('Pembaruan profil berhasil disimpan secara permanen!');
+        if (!rec) { customAlert('Sesi login tidak ditemukan. Silakan login ulang.'); return; }
+        const r = currentUser.role;
+        const pre = r === 'worker' ? 'dash-w-' : 'dash-c-';
+        const v = (id) => { const el = document.getElementById(pre + id); return el ? el.value.trim() : ''; };
+        const name = v('name'), email = v('email'), wa = v('wa');
+        if (!name) { customAlert('Nama lengkap wajib diisi.'); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { customAlert('Format email tidak valid.'); return; }
+        const waDigits = wa.replace(/\D/g, '');
+        if (waDigits.length < 8 || waDigits.length > 15) { customAlert('Nomor WhatsApp tidak valid.'); return; }
+        const np = v('newpass'), np2 = v('newpass2');
+        if (np || np2) {
+            if (np.length < 4) { customAlert('Password baru minimal 4 karakter.'); return; }
+            if (np !== np2) { customAlert('Konfirmasi password baru tidak sama.'); return; }
+        }
+        const oldName = rec.name;
+        rec.name = name; rec.email = email; rec.wa = wa;
+        rec.address = v('address'); rec.city = v('city'); rec.zip = v('zip'); rec.bio = v('bio');
+        if (r === 'customer') {
+            rec.type = v('type') || rec.type; rec.business = v('business'); rec.bizField = v('field');
+            rec.dob = v('dob'); rec.website = v('website');
+        } else {
+            rec.nickname = v('nick'); rec.ttl = v('ttl'); rec.specs = v('specs'); rec.experience = v('exp');
+            rec.availability = v('avail') || 'on'; rec.tools = v('tools'); rec.portfolio = v('port');
+            const bank = v('bank'), no = v('rek'), an = v('rekname');
+            if (bank && no && an) rec.rekening = `${bank} ${no} A/N ${an}`;
+        }
+        if (np) rec.password = np;
+        if (currentTempAvatarUrl) rec.avatar = currentTempAvatarUrl;
+        if (oldName !== name) ordersDB.forEach(o => { if (o.customerId === rec.id) o.customerName = name; });
+        currentTempAvatarUrl = "";
+        updateUserTrigger();
+        fillDashboard(r, rec);
+        try { renderAdminNotifications(); } catch (err) {}
+        customAlert('Profil berhasil disimpan dan tersinkron ke Admin Portal!');
     };
 
     function renderAvatarHtml(url, fallbackChar) {
@@ -1070,10 +1139,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('user-btn');
         if (!btn) return;
         const rec = getCurrentRecord();
-        if (!rec) { btn.className = 'user-trigger'; btn.title = 'Login'; btn.innerHTML = PERSON_SVG; return; }
+        if (!rec) { btn.className = 'user-trigger'; btn.title = 'Login'; btn.innerHTML = PERSON_SVG; updateChatWidget(); return; }
         btn.className = 'user-trigger logged-in ' + (currentUser.role === 'worker' ? 'is-worker' : 'is-customer');
         btn.title = rec.name;
         btn.innerHTML = rec.avatar ? `<img src="${rec.avatar}" alt="">` : escHtml((rec.name || '?').trim().charAt(0).toUpperCase());
+        updateChatWidget();
     }
 
     // Cari akun lewat ID Nexora (username atau ID), boleh tanpa prefix
@@ -1092,13 +1162,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function fillDashboard(role, rec) {
-        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = val; };
+        const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val === undefined || val === null) ? '' : val; };
+        const statusMap = { Waiting: 'Menunggu Tinjauan Admin', Active: 'Aktif', Hold: 'Hold', Worker: 'Worker Aktif', 'On Progress': 'On Progress', Freeze: 'Freeze', Declined: 'Ditolak' };
+        const st = statusMap[rec.status] || rec.status || '-';
         if (role === 'customer') {
-            set('dash-c-id', rec.id); set('dash-c-nik', rec.nik || '-'); set('dash-c-name', rec.name); set('dash-c-email', rec.email); set('dash-c-wa', rec.wa);
+            const lvl = calculateCustomerLevel(rec.spent || 0);
+            set('dash-c-id', rec.id); set('dash-c-nik', rec.nik || '-'); set('dash-c-level', `${lvl.medal} ${lvl.name} • Diskon ${lvl.discount}`); set('dash-c-status', st);
+            set('dash-c-type', rec.type || 'Personal'); set('dash-c-name', rec.name); set('dash-c-business', rec.business); set('dash-c-field', rec.bizField);
+            set('dash-c-dob', rec.dob); set('dash-c-email', rec.email); set('dash-c-wa', rec.wa); set('dash-c-website', rec.website);
+            set('dash-c-address', rec.address); set('dash-c-city', rec.city); set('dash-c-zip', rec.zip); set('dash-c-bio', rec.bio);
+            set('dash-c-newpass', ''); set('dash-c-newpass2', '');
+            setAvatarPreview('c-avatar-preview', 'c-avatar-text', rec.avatar);
+            const b = document.getElementById('btn-dash-save-cust'); if (b) b.disabled = true;
         } else {
-            set('dash-w-id', rec.id); set('dash-w-nik', rec.nik || '-'); set('dash-w-nick', rec.name); set('dash-w-email', rec.email); set('dash-w-wa', rec.wa);
+            const lvl = calculateLevel(rec.income || 0);
+            set('dash-w-id', rec.id); set('dash-w-nik', rec.nik || '-'); set('dash-w-level', `${lvl.medal} ${lvl.name} • Bonus ${lvl.bonus}`); set('dash-w-balance', formatRp(rec.balance || 0)); set('dash-w-status', st);
+            set('dash-w-name', rec.name); set('dash-w-nick', rec.nickname); set('dash-w-ttl', rec.ttl);
+            set('dash-w-email', rec.email); set('dash-w-wa', rec.wa); set('dash-w-address', rec.address); set('dash-w-city', rec.city); set('dash-w-zip', rec.zip);
+            set('dash-w-specs', rec.specs); set('dash-w-exp', rec.experience); set('dash-w-avail', rec.availability || 'on'); set('dash-w-tools', rec.tools); set('dash-w-port', rec.portfolio); set('dash-w-bio', rec.bio);
+            const m = String(rec.rekening || '').match(/^(.*?)\s+(\d+)\s+A\/N\s+(.*)$/i);
+            set('dash-w-bank', m ? m[1] : ''); set('dash-w-rek', m ? m[2] : ''); set('dash-w-rekname', m ? m[3] : '');
+            set('dash-w-newpass', ''); set('dash-w-newpass2', '');
+            setAvatarPreview('w-avatar-preview', 'w-avatar-text', rec.avatar);
+            const b = document.getElementById('btn-dash-save-worker'); if (b) b.disabled = true;
         }
+        currentTempAvatarUrl = "";
     }
+
+    // Aktifkan tombol simpan saat ada perubahan di form profil
+    [['page-4', 'btn-dash-save-cust'], ['page-5', 'btn-dash-save-worker']].forEach(([pid, bid]) => {
+        const pg = document.getElementById(pid);
+        if (!pg) return;
+        ['input', 'change'].forEach(ev => pg.addEventListener(ev, (e) => {
+            if (e.target.closest && e.target.closest('.profile-dashboard')) { const b = document.getElementById(bid); if (b) b.disabled = false; }
+        }));
+    });
 
     window.openUserLogin = function() {
         document.getElementById('user-login-error').style.display = 'none';
@@ -1213,6 +1311,328 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     /* =========================================
+       DETAIL CUSTOMER (ADMIN)
+       ========================================= */
+    window.openCustomerDetail = function(id) {
+        const c = customersDB.find(x => x.id === id);
+        if (!c) return;
+        const biz = c.business || c.name;
+        document.getElementById('cd-avatar').innerHTML = renderAvatarHtml(c.avatar, escHtml((c.name || 'C').trim().charAt(0).toUpperCase()));
+        document.getElementById('cd-biz').innerText = biz;
+        document.getElementById('cd-id').innerText = c.id;
+        document.getElementById('cd-id2').innerText = c.id;
+        document.getElementById('cd-biz2').innerHTML = escHtml(biz) + (c.business && c.business !== c.name ? `<div style="font-size:0.8rem; color:rgba(255,255,255,0.55); margin-top:3px;">Atas nama: ${escHtml(c.name)}</div>` : '');
+        document.getElementById('cd-photo-note').innerHTML = c.avatar
+            ? `<img src="${c.avatar}" alt="Foto Profile" style="width:110px; height:110px; border-radius:16px; object-fit:cover; border:1px solid rgba(0,242,254,0.4);">`
+            : 'Belum mengunggah foto profile.';
+        const orders = ordersDB.filter(o => o.customerId === c.id);
+        let html = '';
+        orders.forEach(o => {
+            const hasW = o.workerId && o.workerId !== '-';
+            html += `<div class="cd-project"><strong>${escHtml(o.productName)}</strong> <span style="color:#00f2fe;">(${escHtml(o.id)})</span><br>Status: <span style="color:${orderStatusColor(o.status)}; font-weight:700;">${escHtml(o.status)}</span><br>Mulai: ${fmtDate(o.startDate)} &bull; Deadline: <span style="color:#ffaa00; font-weight:700;">${fmtDate(o.deadlineDate)}</span>${hasW ? `<br>Worker: ${escHtml(o.workerId)}` : ''}</div>`;
+        });
+        if (!orders.length) {
+            html = c.project
+                ? `<div class="cd-project"><strong>${escHtml(c.project)}</strong><br>Worker: ${escHtml(c.workerAssigned && c.workerAssigned !== '-' ? c.workerAssigned : 'Belum ditentukan')}<br>Deadline: <span style="color:#ffaa00;">Belum ditetapkan</span></div>`
+                : '<div style="color:rgba(255,255,255,0.5); font-size:0.85rem;">Belum ada project.</div>';
+        }
+        document.getElementById('cd-projects').innerHTML = html;
+        document.getElementById('customer-detail-modal').classList.add('active');
+    };
+
+    /* =========================================
+       SLIDING BANNER IKLAN
+       ========================================= */
+    let bannerIdx = 0, bannerTimer = null;
+    function goBanner(i) {
+        const n = bannersDB.length; if (!n) return;
+        bannerIdx = ((i % n) + n) % n;
+        const track = document.getElementById('banner-track');
+        if (track) track.style.transform = `translateX(-${bannerIdx * 100}%)`;
+        document.querySelectorAll('#banner-dots .banner-dot').forEach((d, k) => d.classList.toggle('active', k === bannerIdx));
+    }
+    function startBannerTimer() {
+        clearInterval(bannerTimer);
+        if (bannersDB.length > 1) bannerTimer = setInterval(() => goBanner(bannerIdx + 1), 4500);
+    }
+    window.renderBanners = function() {
+        const track = document.getElementById('banner-track'), dots = document.getElementById('banner-dots');
+        const prev = document.getElementById('banner-prev'), next = document.getElementById('banner-next');
+        if (!track) return;
+        clearInterval(bannerTimer);
+        if (!bannersDB.length) {
+            track.style.transform = 'none';
+            track.innerHTML = `<div class="banner-slide banner-empty"><div>📢 SLOT IKLAN<small>Ruang banner promosi &bull; rekomendasi 1200 x 400 px</small></div></div>`;
+            dots.innerHTML = ''; prev.style.display = 'none'; next.style.display = 'none';
+            return;
+        }
+        track.innerHTML = bannersDB.map(b => b.link
+            ? `<a class="banner-slide" href="${escHtml(b.link)}" target="_blank" rel="noopener"><img src="${b.imgUrl}" alt="Iklan" draggable="false"></a>`
+            : `<div class="banner-slide"><img src="${b.imgUrl}" alt="Iklan" draggable="false"></div>`).join('');
+        const multi = bannersDB.length > 1;
+        prev.style.display = multi ? 'flex' : 'none'; next.style.display = multi ? 'flex' : 'none';
+        dots.innerHTML = multi ? bannersDB.map((b, k) => `<button type="button" class="banner-dot" aria-label="Banner ${k + 1}"></button>`).join('') : '';
+        dots.querySelectorAll('.banner-dot').forEach((d, k) => d.addEventListener('click', () => { goBanner(k); startBannerTimer(); }));
+        goBanner(Math.min(bannerIdx, bannersDB.length - 1));
+        startBannerTimer();
+    };
+    (function initBannerControls() {
+        const slider = document.getElementById('banner-slider');
+        if (!slider) return;
+        document.getElementById('banner-prev').addEventListener('click', () => { goBanner(bannerIdx - 1); startBannerTimer(); });
+        document.getElementById('banner-next').addEventListener('click', () => { goBanner(bannerIdx + 1); startBannerTimer(); });
+        slider.addEventListener('mouseenter', () => clearInterval(bannerTimer));
+        slider.addEventListener('mouseleave', startBannerTimer);
+        let sx = 0;
+        slider.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; clearInterval(bannerTimer); }, { passive: true });
+        slider.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].clientX - sx;
+            if (Math.abs(dx) > 40) goBanner(bannerIdx + (dx < 0 ? 1 : -1));
+            startBannerTimer();
+        }, { passive: true });
+    })();
+
+    window.renderAdminBanners = function() {
+        const box = document.getElementById('admin-banner-list');
+        if (!box) return;
+        if (!bannersDB.length) { box.innerHTML = '<div class="empty-video-state" style="grid-column: 1 / -1;">BELUM ADA BANNER IKLAN</div>'; return; }
+        box.innerHTML = bannersDB.map((b, i) => `<div class="banner-admin-item"><img src="${b.imgUrl}" alt="Banner ${i + 1}"><div class="meta"><span>${b.link ? escHtml(b.link) : 'Tanpa link'}</span><button type="button" class="btn-vid-action btn-vid-del" style="flex:0 0 auto;" onclick="deleteBanner('${b.id}')">HAPUS</button></div></div>`).join('');
+    };
+    window.deleteBanner = function(id) {
+        customConfirm('Hapus banner iklan ini?', () => { bannersDB = bannersDB.filter(b => b.id !== id); renderAdminBanners(); renderBanners(); });
+    };
+    const btnAddBanner = document.getElementById('btn-add-banner');
+    if (btnAddBanner) btnAddBanner.addEventListener('click', () => {
+        const f = document.getElementById('up-banner-file').files[0];
+        const link = document.getElementById('up-banner-link').value.trim();
+        if (!f) { customAlert('Pilih gambar banner terlebih dahulu.'); return; }
+        if (link && !/^https?:\/\//i.test(link)) { customAlert('Link harus diawali http:// atau https://'); return; }
+        bannersDB.push({ id: 'BNR-' + Date.now(), imgUrl: URL.createObjectURL(f), link: link });
+        document.getElementById('up-banner-file').value = '';
+        document.getElementById('up-banner-link').value = '';
+        document.getElementById('up-banner-filename').innerText = 'Pilih Gambar Banner';
+        renderAdminBanners(); renderBanners();
+        customAlert('Banner iklan berhasil ditambahkan!');
+    });
+
+    /* =========================================
+       CHAT USER <-> ADMIN (teks, file, foto, video, voice)
+       ========================================= */
+    const CHAT_MAX_BYTES = 25 * 1024 * 1024;
+    let activeAdminChatUser = null;
+    const $id = (x) => document.getElementById(x);
+    const fmtSize = (b) => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+    const chatClock = (ts) => { const d = new Date(ts); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+
+    function chatUserRecord(userId) { return customersDB.find(x => x.id === userId) || workersDB.find(x => x.id === userId) || null; }
+    function chatUserInfo(userId) {
+        const isC = customersDB.some(x => x.id === userId);
+        const rec = chatUserRecord(userId);
+        if (rec) return { name: rec.name, role: isC ? 'Customer' : 'Worker' };
+        const m = chatsDB.find(x => x.userId === userId);
+        return { name: m ? m.userName : userId, role: m ? m.userRole : '' };
+    }
+    function msgPreview(m) {
+        if (m.type === 'text') return m.text;
+        if (m.type === 'image') return '🖼️ Foto';
+        if (m.type === 'video') return '🎬 Video';
+        if (m.type === 'voice' || m.type === 'audio') return '🎤 Pesan suara';
+        return '📄 ' + (m.fileName || 'File');
+    }
+    function addChatMessage(userId, from, payload) {
+        const info = chatUserInfo(userId);
+        const m = { id: 'MSG-' + Date.now() + '-' + Math.floor(Math.random() * 1000), userId: userId, userName: info.name, userRole: info.role, from: from, type: 'text', text: '', ts: Date.now(), readByAdmin: from === 'admin', readByUser: from === 'user' };
+        if (payload.file) {
+            const f = payload.file;
+            m.url = URL.createObjectURL(f); m.fileName = f.name; m.size = f.size; m.mime = f.type || '';
+            m.type = payload.voice ? 'voice' : (m.mime.startsWith('image/') ? 'image' : m.mime.startsWith('video/') ? 'video' : m.mime.startsWith('audio/') ? 'audio' : 'file');
+        } else { m.text = payload.text; }
+        chatsDB.push(m);
+        return m;
+    }
+    function chatConversations() {
+        const map = {};
+        chatsDB.forEach(m => { (map[m.userId] = map[m.userId] || { userId: m.userId, msgs: [] }).msgs.push(m); });
+        return Object.values(map).map(cv => { const i = chatUserInfo(cv.userId); cv.name = i.name; cv.role = i.role; cv.last = cv.msgs[cv.msgs.length - 1]; return cv; }).sort((a, b) => b.last.ts - a.last.ts);
+    }
+
+    function renderChatMessages(container, msgs, me) {
+        if (!container) return;
+        if (!msgs.length) { container.innerHTML = '<div class="chat-empty">Belum ada pesan.<br>Tulis pesan atau kirim file untuk memulai chat.</div>'; return; }
+        container.innerHTML = msgs.map(m => {
+            let body;
+            if (m.type === 'text') body = escHtml(m.text).replace(/\n/g, '<br>');
+            else if (m.type === 'image') body = `<a href="${m.url}" target="_blank" rel="noopener"><img src="${m.url}" alt="${escHtml(m.fileName)}"></a>`;
+            else if (m.type === 'video') body = `<video src="${m.url}" controls preload="metadata" playsinline></video>`;
+            else if (m.type === 'voice' || m.type === 'audio') body = `<audio src="${m.url}" controls preload="metadata"></audio>`;
+            else body = `<a class="chat-file" href="${m.url}" download="${escHtml(m.fileName)}"><span class="ic">📄</span><span><span class="nm">${escHtml(m.fileName)}</span><br><span class="sz">${fmtSize(m.size || 0)} &bull; ketuk untuk unduh</span></span></a>`;
+            return `<div class="chat-msg ${m.from === me ? 'mine' : 'theirs'}">${body}<span class="chat-time">${chatClock(m.ts)}</span></div>`;
+        }).join('');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // Komposer pesan (dipakai user & admin): teks, lampiran foto/video/file, rekam suara
+    function buildComposer(root, onSend) {
+        root.innerHTML = `<div class="chat-composer">
+            <div class="chat-attach-menu"><button type="button" data-k="image">🖼️ Foto</button><button type="button" data-k="video">🎬 Video</button><button type="button" data-k="file">📄 File / Dokumen</button></div>
+            <button type="button" class="chat-ic chat-attach" title="Lampirkan" aria-label="Lampirkan">📎</button>
+            <textarea class="chat-input" rows="1" placeholder="Tulis pesan..."></textarea>
+            <button type="button" class="chat-ic chat-mic" title="Rekam suara" aria-label="Rekam suara">🎤</button>
+            <button type="button" class="chat-ic chat-send" title="Kirim" aria-label="Kirim">&#10148;</button>
+            <input type="file" class="in-image" accept="image/*" multiple hidden>
+            <input type="file" class="in-video" accept="video/*" multiple hidden>
+            <input type="file" class="in-file" multiple hidden>
+            <div class="chat-recbar"><span class="rec-dot"></span><span class="rec-time">0:00</span><button type="button" class="rec-cancel">✕ Batal</button><button type="button" class="rec-ok">✓ Kirim</button></div>
+        </div>`;
+        const q = (sel) => root.querySelector(sel);
+        const input = q('.chat-input'), menu = q('.chat-attach-menu');
+        const sendText = () => { const t = input.value.trim(); if (!t) return; onSend({ text: t }); input.value = ''; input.style.height = 'auto'; };
+        q('.chat-send').addEventListener('click', sendText);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendText(); } });
+        input.addEventListener('input', () => { input.style.height = 'auto'; input.style.height = Math.min(input.scrollHeight, 90) + 'px'; });
+        q('.chat-attach').addEventListener('click', (e) => { e.stopPropagation(); menu.classList.toggle('open'); });
+        document.addEventListener('click', () => menu.classList.remove('open'));
+        menu.querySelectorAll('button').forEach(b => b.addEventListener('click', () => { q('.in-' + b.dataset.k).click(); menu.classList.remove('open'); }));
+        ['.in-image', '.in-video', '.in-file'].forEach(sel => q(sel).addEventListener('change', function() {
+            Array.from(this.files).forEach(f => {
+                if (f.size > CHAT_MAX_BYTES) customAlert('File <strong>' + escHtml(f.name) + '</strong> melebihi batas 25 MB.');
+                else onSend({ file: f });
+            });
+            this.value = '';
+        }));
+
+        // Rekam suara
+        let recorder = null, chunks = [], stream = null, tick = null, t0 = 0;
+        const bar = q('.chat-recbar'), timeEl = q('.rec-time');
+        const stopRec = (send) => {
+            if (!recorder) return;
+            clearInterval(tick);
+            const rc = recorder, dur = Math.round((Date.now() - t0) / 1000);
+            recorder = null;
+            rc.onstop = () => {
+                if (stream) stream.getTracks().forEach(t => t.stop());
+                if (send && chunks.length) {
+                    const type = rc.mimeType || 'audio/webm';
+                    const ext = type.includes('mp4') ? 'm4a' : (type.includes('ogg') ? 'ogg' : 'webm');
+                    onSend({ file: new File([new Blob(chunks, { type: type })], 'voice-' + Date.now() + '.' + ext, { type: type }), voice: true, duration: dur });
+                }
+                chunks = [];
+            };
+            try { rc.stop(); } catch (err) {}
+            bar.classList.remove('on');
+        };
+        q('.chat-mic').addEventListener('click', async () => {
+            if (recorder) return;
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) { customAlert('Browser ini belum mendukung rekam suara.'); return; }
+            try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+            catch (err) { customAlert('Izin mikrofon ditolak. Aktifkan izin mikrofon di browser untuk mengirim voice.'); return; }
+            chunks = []; recorder = new MediaRecorder(stream);
+            recorder.ondataavailable = (e) => { if (e.data && e.data.size) chunks.push(e.data); };
+            recorder.start(); t0 = Date.now(); timeEl.innerText = '0:00'; bar.classList.add('on');
+            tick = setInterval(() => { const s2 = Math.floor((Date.now() - t0) / 1000); timeEl.innerText = Math.floor(s2 / 60) + ':' + pad2(s2 % 60); }, 500);
+        });
+        q('.rec-cancel').addEventListener('click', () => stopRec(false));
+        q('.rec-ok').addEventListener('click', () => stopRec(true));
+    }
+
+    // ----- Sisi user -----
+    let userComposerBuilt = false;
+    function markUserRead() { if (currentUser) chatsDB.forEach(m => { if (m.userId === currentUser.id && m.from === 'admin') m.readByUser = true; }); }
+    function renderUserChat() {
+        if (!currentUser) return;
+        renderChatMessages($id('chat-user-body'), chatsDB.filter(m => m.userId === currentUser.id), 'user');
+    }
+    function updateChatBadges() {
+        const fb = $id('chat-fab-badge');
+        if (fb) {
+            const n = currentUser ? chatsDB.filter(m => m.userId === currentUser.id && m.from === 'admin' && !m.readByUser).length : 0;
+            fb.innerText = n; fb.style.display = n > 0 ? 'flex' : 'none';
+        }
+        const ab = $id('chat-badge-notif');
+        if (ab) {
+            const t = chatsDB.filter(m => m.from === 'user' && !m.readByAdmin).length;
+            ab.innerText = t; ab.style.display = t > 0 ? 'flex' : 'none';
+        }
+    }
+    function updateChatWidget(pageId) {
+        const fab = $id('chat-fab'), panel = $id('chat-panel');
+        if (!fab) return;
+        const page = pageId || currentPageId;
+        const show = !!currentUser && page !== 'page-3';
+        fab.style.display = show ? 'flex' : 'none';
+        if (!show && panel) panel.classList.remove('open');
+        updateChatBadges();
+    }
+    function openUserChat() {
+        if (!currentUser) return;
+        if (!userComposerBuilt) {
+            buildComposer($id('chat-user-composer'), (payload) => {
+                if (!currentUser) return;
+                addChatMessage(currentUser.id, 'user', payload);
+                renderUserChat();
+                onUserMessageSent(currentUser.id);
+            });
+            userComposerBuilt = true;
+        }
+        $id('chat-panel').classList.add('open');
+        markUserRead(); renderUserChat(); updateChatBadges();
+    }
+    // Dipanggil setiap user mengirim pesan -> notifikasi admin (Nama + ID Nexora)
+    function onUserMessageSent(userId) {
+        if (activeAdminChatUser === userId && $id('admin-chat-view') && $id('admin-chat-view').style.display !== 'none') {
+            chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
+            renderAdminThreadBody();
+        }
+        renderAdminChatList(); updateChatBadges();
+        try { renderAdminNotifications(); } catch (err) {}
+    }
+    const chatFabEl = $id('chat-fab');
+    if (chatFabEl) chatFabEl.addEventListener('click', () => { const p = $id('chat-panel'); if (p.classList.contains('open')) p.classList.remove('open'); else openUserChat(); });
+    const chatCloseEl = $id('chat-close');
+    if (chatCloseEl) chatCloseEl.addEventListener('click', () => $id('chat-panel').classList.remove('open'));
+
+    // ----- Sisi admin -----
+    window.renderAdminChatList = function() {
+        const list = $id('admin-chat-list');
+        if (!list) return;
+        const convs = chatConversations();
+        if (!convs.length) { list.innerHTML = '<div class="chat-empty">Belum ada pesan masuk.</div>'; return; }
+        list.innerHTML = convs.map(cv => {
+            const unread = cv.msgs.filter(m => m.from === 'user' && !m.readByAdmin).length;
+            const rec = chatUserRecord(cv.userId);
+            const av = renderAvatarHtml(rec ? rec.avatar : '', escHtml((cv.name || '?').trim().charAt(0).toUpperCase()));
+            return `<div class="chat-conv ${cv.userId === activeAdminChatUser ? 'active' : ''}" data-uid="${escHtml(cv.userId)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;"><div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(cv.name)}</div><div class="idn">${escHtml(cv.userId)} &bull; ${escHtml(cv.role)}</div><div class="pv">${escHtml(msgPreview(cv.last))}</div></div>${unread ? `<div class="unread">${unread}</div>` : ''}</div>`;
+        }).join('');
+        list.querySelectorAll('.chat-conv').forEach(n => n.addEventListener('click', () => openAdminThread(n.dataset.uid)));
+    };
+    function renderAdminThreadBody() {
+        if (!activeAdminChatUser) return;
+        renderChatMessages($id('admin-chat-body'), chatsDB.filter(m => m.userId === activeAdminChatUser), 'admin');
+    }
+    function openAdminThread(userId) {
+        activeAdminChatUser = userId;
+        chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
+        const info = chatUserInfo(userId);
+        const th = $id('admin-chat-thread');
+        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span></div></div></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
+        th.querySelector('.back-list').addEventListener('click', () => $id('admin-chat-layout').classList.remove('show-thread'));
+        $id('admin-chat-layout').classList.add('show-thread');
+        buildComposer($id('admin-chat-composer'), (payload) => {
+            addChatMessage(activeAdminChatUser, 'admin', payload);
+            renderAdminThreadBody(); renderAdminChatList();
+            if (currentUser && currentUser.id === activeAdminChatUser && $id('chat-panel').classList.contains('open')) { markUserRead(); renderUserChat(); }
+            updateChatBadges();
+        });
+        renderAdminThreadBody(); renderAdminChatList(); updateChatBadges();
+        try { renderAdminNotifications(); } catch (err) {}
+    }
+    window.openAdminChatFromNotif = function(userId) {
+        viewCarousel.style.display = 'none';
+        viewChat.style.display = 'flex';
+        openAdminThread(userId);
+    };
+
+    /* =========================================
        CUSTOMER AUTHENTIKASI & FORM MANUAL
        ========================================= */
     const cModal = document.getElementById('customer-modal'); const cLogin = document.getElementById('customer-login-view'); const cSignup = document.getElementById('customer-signup-view'); const cTitle = document.getElementById('customer-modal-title');
@@ -1237,11 +1657,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cust) {
             cModal.classList.remove('active');
             setSession('customer', cust.id);
-            document.getElementById('dash-c-id').value = cust.id;
-            document.getElementById('dash-c-nik').value = cust.nik || "-";
-            document.getElementById('dash-c-name').value = cust.name;
-            document.getElementById('dash-c-email').value = cust.email;
-            document.getElementById('dash-c-wa').value = cust.wa;
+            fillDashboard('customer', cust);
             navigateTo('page-4', 'forward');
         } else { document.getElementById('login-c-error').style.display = 'block'; }
     });
@@ -1371,7 +1787,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnCloseSuccess = document.getElementById('btn-close-success');
     if(btnCloseSuccess) btnCloseSuccess.addEventListener('click', () => {
         document.getElementById('success-modal').classList.remove('active');
-        if(pendingRedirect) { navigateTo(pendingRedirect, 'forward'); pendingRedirect = ''; }
+        if(pendingRedirect) { const rr = getCurrentRecord(); if (rr) fillDashboard(currentUser.role, rr); navigateTo(pendingRedirect, 'forward'); pendingRedirect = ''; }
     });
 
     /* =========================================
@@ -1389,7 +1805,7 @@ document.addEventListener('DOMContentLoaded', () => {
         waitWorkers.forEach(w => {
             hasNotif = true;
             const c = document.createElement('div'); c.className = 'notif-card';
-            c.innerHTML = `<div><span class="badge worker">NEW WORKER</span><br><strong>${w.name}</strong><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">Specs: ${w.specs}</div></div><div><button type="button" class="btn-acc" style="color:#00f2fe; border:1px solid #00f2fe;" onclick="reviewWorker('${w.id}')">Review</button></div>`;
+            c.innerHTML = `<div><span class="badge worker">NEW WORKER</span><br><strong>${escHtml(w.name)}</strong><div class="notif-id">ID Nexora: ${escHtml(w.id)}</div><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">Specs: ${escHtml(w.specs)}</div></div><div class="notif-actions"><button type="button" class="btn-acc" style="color:#00f2fe; border:1px solid #00f2fe;" onclick="reviewWorker('${w.id}')">Review</button><button type="button" class="btn-acc acc" onclick="acceptWorkerNotif('${w.id}')">Accept</button><button type="button" class="btn-acc dec" onclick="declineWorkerNotif('${w.id}')">Decline</button></div>`;
             if(notifList) notifList.appendChild(c);
         });
 
@@ -1400,10 +1816,35 @@ document.addEventListener('DOMContentLoaded', () => {
             if(notifList) notifList.appendChild(c);
         });
 
+        chatConversations().forEach(cv => {
+            const unreadMsgs = cv.msgs.filter(m => m.from === 'user' && !m.readByAdmin);
+            if (!unreadMsgs.length) return;
+            hasNotif = true;
+            const last = unreadMsgs[unreadMsgs.length - 1];
+            const c = document.createElement('div'); c.className = 'notif-card chat-notif';
+            c.innerHTML = `<div><span class="badge chat">NEW CHAT (${unreadMsgs.length})</span><br><strong>${escHtml(cv.name)}</strong><div class="notif-id">ID Nexora: ${escHtml(cv.userId)}</div><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">${escHtml(msgPreview(last))}</div></div><div class="notif-actions"><button type="button" class="btn-acc" style="color:#b388ff; border:1px solid #b388ff;" onclick="openAdminChatFromNotif('${cv.userId}')">Buka Chat</button></div>`;
+            if(notifList) notifList.appendChild(c);
+        });
         if(notifArea) notifArea.style.display = hasNotif ? 'block' : 'none';
     }
 
     window.reviewWorker = function(id) { openWorkerDoc(id, true); };
+    window.acceptWorkerNotif = function(id) {
+        const w = workersDB.find(x => x.id === id); if (!w) return;
+        customConfirm('Terima <strong>' + escHtml(w.name) + '</strong> (' + escHtml(w.id) + ') sebagai Worker Nexora?', () => {
+            accWorker(id);
+            document.getElementById('worker-document-modal').classList.remove('active');
+            customAlert('Worker <strong>' + escHtml(w.name) + '</strong> (' + escHtml(w.id) + ') telah di-<strong>Accept</strong>.');
+        });
+    };
+    window.declineWorkerNotif = function(id) {
+        const w = workersDB.find(x => x.id === id); if (!w) return;
+        customConfirm('Tolak pendaftaran <strong>' + escHtml(w.name) + '</strong> (' + escHtml(w.id) + ')?', () => {
+            decWorker(id);
+            document.getElementById('worker-document-modal').classList.remove('active');
+            customAlert('Pendaftaran <strong>' + escHtml(w.name) + '</strong> (' + escHtml(w.id) + ') telah di-<strong>Decline</strong>.');
+        });
+    };
     window.accWorker = function(id) { const w = workersDB.find(x => x.id === id); if(w) w.status = "Worker"; renderAdminNotifications(); renderWorkerTable(); };
     window.decWorker = function(id) { const w = workersDB.find(x => x.id === id); if(w) w.status = "Declined"; renderAdminNotifications(); renderWorkerTable(); };
 
@@ -1452,14 +1893,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if(!tbodyCust) return;
         tbodyCust.innerHTML = '';
         let db = currentCustTab === 'active' ? customersDB.filter(c => ['Active','Hold'].includes(c.status)) : customersDB.filter(c => ['Completed','Cancelled'].includes(c.status));
-        if(db.length === 0) { tbodyCust.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 20px;">Tidak ada data pelanggan.</td></tr>`; return; }
+        if(db.length === 0) { tbodyCust.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada data pelanggan.</td></tr>`; return; }
 
         db.forEach(c => {
             const lvl = calculateCustomerLevel(c.spent);
             const tr = document.createElement('tr'); tr.className = "data-row";
             const avatarHtml = renderAvatarHtml(c.avatar, "C");
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button></td>`;
             tbodyCust.appendChild(tr);
         });
     };
@@ -1472,6 +1913,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('doc-port').innerText = w.portfolio || "-";
         document.getElementById('doc-rek').innerText = w.rekening || "-";
         document.getElementById('doc-user').innerText = w.username || "-";
+        const row = (lbl, val) => val ? `<div class="profile-section"><div class="profile-label">${lbl}</div><div class="profile-value">${escHtml(val)}</div></div>` : '';
+        const extra = document.getElementById('doc-extra');
+        if (extra) extra.innerHTML = row('ID Nexora', w.id) + row('Nama Panggilan', w.nickname) + row('Alamat', [w.address, w.city, w.zip].filter(Boolean).join(', ')) + row('Pengalaman', w.experience) + row('Penerimaan Job', w.availability === 'off' ? 'Tidak Menerima Job' : (w.availability === 'on' ? 'Menerima Job' : '')) + row('Software / Tools', w.tools) + row('Bio', w.bio);
+        const bar = document.getElementById('doc-action-bar');
+        if (bar) {
+            if (isReview) {
+                bar.innerHTML = `<button type="button" class="btn-acc acc" onclick="acceptWorkerNotif('${w.id}')">Accept</button><button type="button" class="btn-acc dec" onclick="declineWorkerNotif('${w.id}')">Decline</button>`;
+                bar.style.display = 'flex';
+            } else { bar.innerHTML = ''; bar.style.display = 'none'; }
+        }
         document.getElementById('worker-document-modal').classList.add('active');
     };
     document.getElementById('close-worker-document').addEventListener('click', () => { document.getElementById('worker-document-modal').classList.remove('active'); });
@@ -1482,7 +1933,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(cards.length === 0 || !carousel || !scene) return;
         
         let radius = Math.round((260 / 2) / Math.tan(Math.PI / cards.length)) + 60;
-        if (carouselId === 'admin-carousel') radius = 260;
+        if (carouselId === 'admin-carousel') radius = Math.max(260, radius);
 
         let tA = 0; let cA = 0; let isD = false; let sX = 0; let vel = 0; let lX = 0; let lT = 0;
         cards.forEach((c, i) => { 
@@ -1498,6 +1949,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (c.id === 'btn-menu-customer') { viewCarousel.style.display = 'none'; viewDataCustomer.style.display = 'flex'; renderCustomerTable(); }
                         if (c.id === 'btn-menu-content') { viewCarousel.style.display = 'none'; viewManageContent.style.display = 'flex'; switchCMSTab('video'); }
                         if (c.id === 'btn-menu-finance') { viewCarousel.style.display = 'none'; viewFinance.style.display = 'flex'; renderFinanceTable(); }
+                        if (c.id === 'btn-menu-chat') { viewCarousel.style.display = 'none'; viewChat.style.display = 'flex'; renderAdminChatList(); }
                     }
                 }
             });
@@ -1540,5 +1992,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderAdminNotifications();
     updateOrderBadge();
     updateUserTrigger();
+    renderBanners();
+    updateChatBadges();
 
-});
+});

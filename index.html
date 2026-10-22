@@ -146,6 +146,7 @@
             <div class="profile-section"><div class="profile-label">Portofolio</div><div class="profile-value"><a href="#" id="doc-port" style="color:#fff;">-</a></div></div>
             <div class="profile-section"><div class="profile-label">Rekening</div><div class="profile-value" id="doc-rek">-</div></div>
             <div class="profile-section"><div class="profile-label">Username</div><div class="profile-value" id="doc-user">-</div></div>
+            <div id="doc-extra"></div>
             <div id="doc-action-bar" style="display: none; justify-content: center; gap: 15px; margin-top: 25px; margin-bottom: 15px;"></div>
             <div class="close-modal" id="close-worker-document" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup Dokumen</div>
         </div>
@@ -235,6 +236,33 @@
             <button type="button" id="btn-fin-m-save" class="btn-futuristic" style="width: 100%; margin-bottom: 10px;">SIMPAN TRANSAKSI</button>
             <div class="close-modal" onclick="document.getElementById('fin-manual-modal').classList.remove('active')">Batal</div>
         </div>
+    </div>
+
+    <!-- MODAL DETAIL CUSTOMER (ADMIN) -->
+    <div class="modal-overlay" id="customer-detail-modal">
+        <div class="modal-box profile-modal-box">
+            <h3 style="color: #00f2fe; margin-bottom: 20px; text-align: center;">DETAIL CUSTOMER</h3>
+            <div class="profile-header">
+                <div class="avatar-wrapper" style="width: 80px; height: 80px;"><div class="avatar-o" id="cd-avatar">C</div></div>
+                <div><div class="profile-name" id="cd-biz">-</div><div class="profile-id" id="cd-id">-</div></div>
+            </div>
+            <div class="profile-section"><div class="profile-label">Foto Profile</div><div class="profile-value" id="cd-photo-note" style="font-size:0.85rem; color:rgba(255,255,255,0.6);">-</div></div>
+            <div class="profile-section"><div class="profile-label">ID Nexora Customer</div><div class="profile-value" id="cd-id2" style="color:#00f2fe;">-</div></div>
+            <div class="profile-section"><div class="profile-label">Nama Bisnis</div><div class="profile-value" id="cd-biz2">-</div></div>
+            <div class="profile-section"><div class="profile-label">Detail Project & Deadline</div><div id="cd-projects"></div></div>
+            <div class="close-modal" onclick="document.getElementById('customer-detail-modal').classList.remove('active')" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup</div>
+        </div>
+    </div>
+
+    <!-- CHAT USER -> ADMIN (MUNCUL SETELAH LOGIN) -->
+    <button type="button" id="chat-fab" class="chat-fab" style="display: none;" title="Chat Admin" aria-label="Chat Admin">💬<span class="chat-fab-badge" id="chat-fab-badge" style="display: none;">0</span></button>
+    <div class="chat-panel" id="chat-panel">
+        <div class="chat-head">
+            <div><strong>Chat Admin Nexora</strong><span>Kirim teks, file, foto, video & voice</span></div>
+            <button type="button" id="chat-close" aria-label="Tutup chat">&#10005;</button>
+        </div>
+        <div class="chat-body" id="chat-user-body"></div>
+        <div id="chat-user-composer"></div>
     </div>
 
     <!-- MODAL ADMIN LOGIN -->
@@ -427,6 +455,15 @@
 
                 <div class="btn-wrapper"><button type="button" id="btn-regist" class="btn-futuristic">Join Now</button></div>
 
+                <div class="banner-section" id="banner-section">
+                    <div class="banner-slider" id="banner-slider">
+                        <div class="banner-track" id="banner-track"></div>
+                        <button type="button" class="banner-nav prev" id="banner-prev" aria-label="Sebelumnya">&#10094;</button>
+                        <button type="button" class="banner-nav next" id="banner-next" aria-label="Berikutnya">&#10095;</button>
+                        <div class="banner-dots" id="banner-dots"></div>
+                    </div>
+                </div>
+
                 <div class="video-section">
                     <h2 class="section-title">KARYA TERBARU KAMI</h2>
                     <div class="video-grid" id="main-video-grid"></div>
@@ -503,7 +540,7 @@
         <div id="page-3" class="page-container page-hidden">
             <div class="portal-topbar">
                 <div class="portal-logo-wrap"><div class="portal-logo-crop"><img src="logo nexora.svg" class="portal-logo-img"></div></div>
-                <button type="button" id="btn-logout-admin" class="btn-logout">LOGOUT</button>
+                <div class="topbar-actions"><button type="button" class="btn-home">&larr; MENU UTAMA</button><button type="button" id="btn-logout-admin" class="btn-logout">LOGOUT</button></div>
             </div>
             
             <div class="admin-notif-area" id="admin-notifications" style="display: none;">
@@ -521,6 +558,7 @@
                         <div class="admin-card" id="btn-menu-customer"><div class="icon">👥</div><h3>Data Customer</h3><p>Database Pelanggan & Status Proyek.</p></div>
                         <div class="admin-card" id="btn-menu-content"><div class="icon">🎬</div><h3>Management Konten</h3><p>Upload & Pin Video Katalog.</p></div>
                         <div class="admin-card" id="btn-menu-finance"><div class="icon">💰</div><h3>Laporan Keuangan</h3><p>Pemasukan, pengeluaran, bagi hasil & total income.</p></div>
+                        <div class="admin-card" id="btn-menu-chat"><div class="icon">💬</div><h3>Chat User</h3><p>Balas pesan dari Customer & Worker.</p><div id="chat-badge-notif" style="position: absolute; top: 15px; right: 15px; background: #ff0055; color: #fff; border-radius: 50%; width: 25px; height: 25px; display: none; justify-content: center; align-items: center; font-size: 0.75rem; font-weight: bold;">0</div></div>
                     </div>
                 </div>
                 <div class="admin-swipe-instruction">GESER UNTUK MELIHAT MENU ADMIN</div>
@@ -538,6 +576,20 @@
                             <thead><tr><th>ID PESANAN</th><th>NAMA PRODUK</th><th>NOMINAL TRANSFER</th><th>TANGGAL MULAI &amp; DEADLINE</th><th>STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
                             <tbody id="orders-table-tbody"></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAMPILAN CHAT ADMIN -->
+            <div id="admin-chat-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">CHAT USER</h2>
+                        <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-chat-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+                    <div class="admin-chat-layout" id="admin-chat-layout">
+                        <div class="admin-chat-list" id="admin-chat-list"></div>
+                        <div class="admin-chat-thread" id="admin-chat-thread"><div class="chat-empty">Pilih percakapan di sebelah kiri.</div></div>
                     </div>
                 </div>
             </div>
@@ -574,6 +626,7 @@
                     <!-- Slider Kategori CMS -->
                     <div class="cms-category-slider">
                         <button class="cms-cat-btn active" id="cms-tab-video" onclick="switchCMSTab('video')">Video Konten</button>
+                        <button class="cms-cat-btn" id="cms-tab-banner" onclick="switchCMSTab('banner')">Banner Iklan</button>
                         <button class="cms-cat-btn" id="cms-tab-Design" onclick="switchCMSTab('Design')">Design</button>
                         <button class="cms-cat-btn" id="cms-tab-Animasi" onclick="switchCMSTab('Animasi')">Animasi</button>
                         <button class="cms-cat-btn" id="cms-tab-Pajak" onclick="switchCMSTab('Pajak')">Pajak</button>
@@ -609,6 +662,20 @@
                         </div>
                         <button type="button" id="btn-submit-video" class="btn-futuristic" style="width:100%; margin-top:20px;" disabled>SIMPAN VIDEO KONTEN</button>
                         <button type="button" class="btn-futuristic" style="width:100%; margin-top:10px; background:transparent; color:#ff0055; border-color:#ff0055;" onclick="document.getElementById('content-upload-view').style.display='none'; document.getElementById('content-list-view').style.display='block';">BATAL</button>
+                    </div>
+
+                    <!-- BANNER IKLAN -->
+                    <div id="banner-manage-view" style="display: none; width: 100%; text-align: left;">
+                        <h3 style="color:#00f2fe; margin-bottom:15px;">SLIDING BANNER IKLAN</h3>
+                        <p style="color:rgba(255,255,255,0.6); font-size:0.85rem; margin-bottom:15px;">Banner tampil bergeser otomatis di halaman utama. Rekomendasi ukuran 1200 x 400 px (rasio 3:1).</p>
+                        <label class="vid-upload-label" style="margin-bottom: 15px;">
+                            <span class="icon">🖼️</span>
+                            <span class="txt" id="up-banner-filename">Pilih Gambar Banner</span>
+                            <input type="file" id="up-banner-file" accept="image/*" style="display: none;" onchange="document.getElementById('up-banner-filename').innerText = this.files[0] ? this.files[0].name : 'Pilih Gambar Banner';">
+                        </label>
+                        <input type="url" id="up-banner-link" class="setup-input" placeholder="Link tujuan iklan (opsional) https://...">
+                        <button type="button" id="btn-add-banner" class="btn-futuristic" style="width:100%; margin-bottom: 25px;">TAMBAH BANNER</button>
+                        <div id="admin-banner-list" class="banner-admin-list"></div>
                     </div>
 
                     <!-- LIST PRODUK -->
@@ -673,7 +740,7 @@
                     </div>
                     <div class="data-table-wrapper">
                         <table class="data-table">
-                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID CUSTOMER</th><th>NAMA / BISNIS</th><th>LEVEL PELANGGAN</th><th>STATUS (ADJUST)</th></tr></thead>
+                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID CUSTOMER</th><th>NAMA / BISNIS</th><th>LEVEL PELANGGAN</th><th>STATUS (ADJUST)</th><th style="text-align:center; width:110px;">DETAIL</th></tr></thead>
                             <tbody id="customer-list-tbody"></tbody>
                         </table>
                     </div>
@@ -685,7 +752,7 @@
         <div id="page-4" class="page-container page-hidden">
             <div class="portal-topbar">
                 <div class="portal-logo-wrap"><div class="portal-logo-crop"><img src="logo nexora.svg" class="portal-logo-img"></div></div>
-                <button type="button" id="btn-logout-customer" class="btn-logout" style="border-color: #00f2fe; color: #00f2fe;">LOGOUT</button>
+                <div class="topbar-actions"><button type="button" class="btn-home">&larr; MENU UTAMA</button><button type="button" id="btn-logout-customer" class="btn-logout" style="border-color: #00f2fe; color: #00f2fe;">LOGOUT</button></div>
             </div>
             
             <div class="profile-dashboard">
@@ -701,12 +768,30 @@
                 </div>
 
                 <div class="form-grid">
-                    <div class="form-group"><label>ID Nexora</label><input type="text" id="dash-c-id" class="setup-input" disabled value="NEXC-XXXXXX"></div>
-                    <div class="form-group"><label>Nomor Induk Kependudukan (NIK)</label><input type="text" id="dash-c-nik" class="setup-input" disabled></div>
-                    <div class="form-group"><label>Nama Lengkap / Instansi</label><input type="text" id="dash-c-name" class="setup-input"></div>
-                    <div class="form-group"><label>Email Aktif</label><input type="email" id="dash-c-email" class="setup-input"></div>
-                    <div class="form-group"><label>Nomor WhatsApp</label><input type="text" id="dash-c-wa" class="setup-input"></div>
-                    <div class="form-group"><label>Status Proyek</label><input type="text" id="dash-c-status" class="setup-input" disabled value="Menunggu Tinjauan Admin" style="color:#ffaa00; font-weight:bold;"></div>
+                    <div class="dash-section full-width">Akun</div>
+                    <div class="form-group"><label>ID Nexora</label><input type="text" id="dash-c-id" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group"><label>Nomor Induk Kependudukan (NIK)</label><input type="text" id="dash-c-nik" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group"><label>Level & Diskon</label><input type="text" id="dash-c-level" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group"><label>Status Akun</label><input type="text" id="dash-c-status" class="setup-input" placeholder="" disabled style="color:#ffaa00; font-weight:bold;"></div>
+                    <div class="dash-section full-width">Data Diri / Instansi</div>
+                    <div class="form-group"><label>Jenis Akun</label><select id="dash-c-type" class="setup-input"><option value="Personal">Personal (Perorangan)</option><option value="Corporate">Corporate (Perusahaan / Instansi)</option></select></div>
+                    <div class="form-group"><label>Nama Lengkap / Instansi <span class="req">*</span></label><input type="text" id="dash-c-name" class="setup-input" placeholder="Nama lengkap atau instansi" ></div>
+                    <div class="form-group"><label>Nama Bisnis / Brand</label><input type="text" id="dash-c-business" class="setup-input" placeholder="Nama bisnis / brand Anda" ></div>
+                    <div class="form-group"><label>Bidang Usaha</label><select id="dash-c-field" class="setup-input"><option value="">-- Pilih Bidang --</option><option value="Kuliner">Kuliner</option><option value="Fashion">Fashion</option><option value="Teknologi">Teknologi</option><option value="Pendidikan">Pendidikan</option><option value="Kesehatan">Kesehatan</option><option value="Properti">Properti</option><option value="Ritel / E-Commerce">Ritel / E-Commerce</option><option value="Jasa Profesional">Jasa Profesional</option><option value="Lainnya">Lainnya</option></select></div>
+                    <div class="form-group"><label>Tanggal Lahir / Berdiri</label><input type="date" id="dash-c-dob" class="setup-input" placeholder="" ></div>
+                    <div class="dash-section full-width">Kontak</div>
+                    <div class="form-group"><label>Email Aktif <span class="req">*</span></label><input type="email" id="dash-c-email" class="setup-input" placeholder="email@contoh.com" ></div>
+                    <div class="form-group"><label>Nomor WhatsApp <span class="req">*</span></label><input type="tel" id="dash-c-wa" class="setup-input" placeholder="+62812..." ></div>
+                    <div class="form-group full-width"><label>Website / Instagram</label><input type="text" id="dash-c-website" class="setup-input" placeholder="https://... atau @akun" ></div>
+                    <div class="dash-section full-width">Alamat</div>
+                    <div class="form-group full-width"><label>Alamat Lengkap</label><textarea id="dash-c-address" class="setup-input" rows="3" placeholder="Jalan, nomor, RT/RW, kelurahan, kecamatan"></textarea></div>
+                    <div class="form-group"><label>Kota / Kabupaten</label><input type="text" id="dash-c-city" class="setup-input" placeholder="Kota / Kabupaten" ></div>
+                    <div class="form-group"><label>Kode Pos</label><input type="text" id="dash-c-zip" class="setup-input" placeholder="Kode Pos" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
+                    <div class="dash-section full-width">Tentang Bisnis</div>
+                    <div class="form-group full-width"><label>Deskripsi Bisnis / Kebutuhan Layanan</label><textarea id="dash-c-bio" class="setup-input" rows="3" placeholder="Ceritakan singkat bisnis dan kebutuhan Anda"></textarea></div>
+                    <div class="dash-section full-width">Keamanan (kosongkan jika tidak ingin mengganti password)</div>
+                    <div class="form-group"><label>Password Baru</label><input type="password" id="dash-c-newpass" class="setup-input" placeholder="Password baru" ></div>
+                    <div class="form-group"><label>Konfirmasi Password Baru</label><input type="password" id="dash-c-newpass2" class="setup-input" placeholder="Ulangi password baru" ></div>
                 </div>
 
                 <button type="button" id="btn-dash-save-cust" class="btn-futuristic" style="width: 100%; margin-top: 15px;" disabled onclick="saveProfileChanges('customer')">SIMPAN PERUBAHAN</button>
@@ -717,7 +802,7 @@
         <div id="page-5" class="page-container page-hidden">
             <div class="portal-topbar">
                 <div class="portal-logo-wrap"><div class="portal-logo-crop"><img src="logo nexora.svg" class="portal-logo-img"></div></div>
-                <button type="button" id="btn-logout-worker" class="btn-logout" style="border-color: #ff0055; color: #ff0055;">LOGOUT</button>
+                <div class="topbar-actions"><button type="button" class="btn-home">&larr; MENU UTAMA</button><button type="button" id="btn-logout-worker" class="btn-logout" style="border-color: #ff0055; color: #ff0055;">LOGOUT</button></div>
             </div>
             
             <div class="profile-dashboard worker-theme">
@@ -732,6 +817,39 @@
                     <span style="font-size: 0.75rem; color: rgba(255,255,255,0.5); margin-top: 10px;">Upload Pas Foto Profesional Tampilan Katalog</span>
                 </div>
 
+                <div class="form-grid">
+                    <div class="dash-section full-width">Akun</div>
+                    <div class="form-group"><label>ID Nexora</label><input type="text" id="dash-w-id" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group"><label>Nomor Induk Kependudukan (NIK)</label><input type="text" id="dash-w-nik" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group"><label>Level Worker</label><input type="text" id="dash-w-level" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group"><label>Saldo Pendapatan</label><input type="text" id="dash-w-balance" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group full-width"><label>Status Akun</label><input type="text" id="dash-w-status" class="setup-input" placeholder="" disabled style="color:#ffaa00; font-weight:bold;"></div>
+                    <div class="dash-section full-width">Data Diri</div>
+                    <div class="form-group"><label>Nama Lengkap (Sesuai KTP) <span class="req">*</span></label><input type="text" id="dash-w-name" class="setup-input" placeholder="Nama lengkap" ></div>
+                    <div class="form-group"><label>Nama Panggilan / Tampilan Katalog</label><input type="text" id="dash-w-nick" class="setup-input" placeholder="Nama panggilan" ></div>
+                    <div class="form-group full-width"><label>Tempat, Tanggal Lahir</label><input type="text" id="dash-w-ttl" class="setup-input" placeholder="Kota, 17 Agu 1997" ></div>
+                    <div class="dash-section full-width">Kontak & Alamat</div>
+                    <div class="form-group"><label>Email Aktif <span class="req">*</span></label><input type="email" id="dash-w-email" class="setup-input" placeholder="email@contoh.com" ></div>
+                    <div class="form-group"><label>Nomor WhatsApp <span class="req">*</span></label><input type="tel" id="dash-w-wa" class="setup-input" placeholder="+62812..." ></div>
+                    <div class="form-group full-width"><label>Alamat Domisili</label><textarea id="dash-w-address" class="setup-input" rows="3" placeholder="Jalan, nomor, RT/RW, kelurahan, kecamatan"></textarea></div>
+                    <div class="form-group"><label>Kota / Kabupaten</label><input type="text" id="dash-w-city" class="setup-input" placeholder="Kota / Kabupaten" ></div>
+                    <div class="form-group"><label>Kode Pos</label><input type="text" id="dash-w-zip" class="setup-input" placeholder="Kode Pos" inputmode="numeric" maxlength="6" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
+                    <div class="dash-section full-width">Profesional</div>
+                    <div class="form-group full-width"><label>Spesialisasi / Keahlian</label><input type="text" id="dash-w-specs" class="setup-input" placeholder="Cth: Web Dev, UI/UX Design" ></div>
+                    <div class="form-group"><label>Pengalaman</label><select id="dash-w-exp" class="setup-input"><option value="">-- Pilih --</option><option value="< 1 tahun">Kurang dari 1 tahun</option><option value="1-2 tahun">1 - 2 tahun</option><option value="3-5 tahun">3 - 5 tahun</option><option value="> 5 tahun">Lebih dari 5 tahun</option></select></div>
+                    <div class="form-group"><label>Penerimaan Job</label><select id="dash-w-avail" class="setup-input"><option value="on">Menerima Job</option><option value="off">Tidak Menerima Job (Libur)</option></select></div>
+                    <div class="form-group full-width"><label>Software / Tools yang Dikuasai</label><input type="text" id="dash-w-tools" class="setup-input" placeholder="Cth: Figma, VS Code, After Effects" ></div>
+                    <div class="form-group full-width"><label>Link Portofolio</label><input type="url" id="dash-w-port" class="setup-input" placeholder="https://..." ></div>
+                    <div class="form-group full-width"><label>Bio Singkat (Tampil di Katalog)</label><textarea id="dash-w-bio" class="setup-input" rows="3" placeholder="Perkenalkan diri dan keunggulan Anda"></textarea></div>
+                    <div class="dash-section full-width">Rekening Pencairan Saldo</div>
+                    <div class="form-group"><label>Bank</label><select id="dash-w-bank" class="setup-input"><option value="">-- Pilih Bank --</option><option value="BCA">BCA</option><option value="Mandiri">Mandiri</option><option value="BNI">BNI</option><option value="BRI">BRI</option><option value="BSI">BSI</option><option value="CIMB Niaga">CIMB Niaga</option><option value="Permata">Permata</option><option value="Danamon">Danamon</option><option value="SeaBank">SeaBank</option><option value="Bank Jago">Bank Jago</option><option value="BNC">BNC</option><option value="Jenius">Jenius</option></select></div>
+                    <div class="form-group"><label>Nomor Rekening</label><input type="text" id="dash-w-rek" class="setup-input" placeholder="Nomor rekening" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')"></div>
+                    <div class="form-group full-width"><label>Atas Nama Rekening</label><input type="text" id="dash-w-rekname" class="setup-input" placeholder="Sesuai identitas" ></div>
+                    <div class="dash-section full-width">Keamanan (kosongkan jika tidak ingin mengganti password)</div>
+                    <div class="form-group"><label>Password Baru</label><input type="password" id="dash-w-newpass" class="setup-input" placeholder="Password baru" ></div>
+                    <div class="form-group"><label>Konfirmasi Password Baru</label><input type="password" id="dash-w-newpass2" class="setup-input" placeholder="Ulangi password baru" ></div>
+                </div>
+
                 <button type="button" id="btn-dash-save-worker" class="btn-futuristic" style="border-color:#ff0055; color:#ff0055; width: 100%; margin-top: 15px;" disabled onclick="saveProfileChanges('worker')">SIMPAN PERUBAHAN</button>
             </div>
         </div>
@@ -741,4 +859,4 @@
     <script src="data.js"></script>
     <script src="script.js"></script>
 </body>
-</html>
+</html>

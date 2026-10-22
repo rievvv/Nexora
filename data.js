@@ -1,4 +1,4 @@
-/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, calculateLevel, calculateCustomerLevel, formatRp */
+/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, calculateLevel, calculateCustomerLevel, formatRp */
 
 // =========================================
 // DATABASE & LOGIKA LEVELING NEXORA
@@ -44,3 +44,9 @@ let ordersDB = [];
 
 // DATABASE LAPORAN KEUANGAN (diisi otomatis dari Pesanan + transaksi manual Admin)
 let financeDB = [];
+
+// DATABASE BANNER IKLAN (sliding banner halaman utama)
+let bannersDB = [];
+
+// DATABASE CHAT USER <-> ADMIN
+let chatsDB = [];
