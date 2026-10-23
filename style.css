@@ -114,7 +114,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator, input[type="dat
 .glass-container::before { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255, 255, 255, 0.02); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 40px; z-index: -1; pointer-events: none; }
 
 .scene { width: 100%; height: 360px; perspective: 1200px; display: flex; align-items: center; justify-content: center; cursor: grab; transform-style: preserve-3d; z-index: 10; } 
-.scene:active { cursor: grabbing; }
+.scene.dragging, .scene.dragging .card { cursor: grabbing; }
 
 .carousel { width: var(--card-width); height: 360px; position: relative; transform-style: preserve-3d; }
 
@@ -239,7 +239,7 @@ input[type="datetime-local"]::-webkit-calendar-picker-indicator, input[type="dat
 
 .admin-page-title { color: #ffffff; font-weight: 800; letter-spacing: 3px; font-size: 1.8rem; margin-bottom: 40px; text-shadow: 0 0 15px rgba(0, 242, 254, 0.4); text-align: center; text-transform: uppercase; }
 .admin-scene { width: 100%; height: 360px; perspective: 1200px; display: flex; align-items: center; justify-content: center; cursor: grab; transform-style: preserve-3d; z-index: 10; } 
-.admin-scene:active { cursor: grabbing; }
+.admin-scene.dragging, .admin-scene.dragging .admin-card { cursor: grabbing; }
 
 .admin-carousel { width: var(--card-width); height: 360px; position: relative; transform-style: preserve-3d; will-change: transform; }
 
@@ -788,3 +788,8 @@ html[data-lang="ar"] .lang-menu li { direction: rtl; }
     .pkg-del { grid-column: 2; grid-row: 1; }
     .admin-chat-tabs .admin-tab { font-size: 0.72rem; padding: 8px 4px; }
 }
+
+/* Kartu menu di depan = kursor tangan penunjuk (klik); area lain = grab (putar) */
+.card.active, .admin-card.active { cursor: pointer; }
+.admin-trigger.unlocked { color: #00f2fe; filter: drop-shadow(0 0 8px rgba(0,242,254,0.7)); }
+.admin-trigger svg { width: 100%; height: 100%; }

@@ -203,6 +203,7 @@ window.NexBoot = function () {
        ========================================= */
     const adminBtn = document.getElementById('admin-btn');
     if (adminBtn) adminBtn.addEventListener('click', () => { 
+        if (adminAuthed) { if (currentPageId !== 'page-3') navigateTo('page-3', 'forward'); return; }
         document.getElementById('admin-modal').classList.add('active'); 
         document.getElementById('login-error-admin').style.display = 'none';
     });
@@ -224,6 +225,8 @@ window.NexBoot = function () {
 
         if (isValidAdmin) {
             adminAuthed = true;
+            if (currentUser) clearSession();
+            updateAuthIcons();
             adminId = (user === 'admin') ? 'NEX-ADMIN' : user;
             document.getElementById('login-error-admin').style.display = 'none';
             document.getElementById('admin-modal').classList.remove('active'); 
@@ -250,6 +253,7 @@ window.NexBoot = function () {
     const btnLogoutAdmin = document.getElementById('btn-logout-admin');
     if (btnLogoutAdmin) btnLogoutAdmin.addEventListener('click', () => { 
         adminAuthed = false;
+        updateAuthIcons();
         document.getElementById('admin-carousel-view').style.display = 'flex';
         document.getElementById('admin-orders-view').style.display = 'none';
         document.getElementById('admin-data-worker-view').style.display = 'none';
@@ -1698,6 +1702,7 @@ window.NexBoot = function () {
 
     function setSession(role, id) {
         currentUser = { role: role, id: id };
+        adminAuthed = false;
         try { localStorage.setItem('nex_session', JSON.stringify(currentUser)); } catch (err) {}
         updateUserTrigger();
     }
@@ -1718,9 +1723,28 @@ window.NexBoot = function () {
     }
 
     // Icon login -> foto profil (tanpa ikon gembok) setelah login
+    // Ikon header: gembok tertutup + profil (belum login) | gembok terbuka saja (Admin) | profil saja (Worker/Customer)
+    const LOCK_CLOSED = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
+    const LOCK_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>';
+    function updateAuthIcons() {
+        const ab = document.getElementById('admin-btn'), ub = document.getElementById('user-btn');
+        if (!ab || !ub) return;
+        const userIn = !!getCurrentRecord();
+        if (adminAuthed) {
+            ab.innerHTML = LOCK_OPEN; ab.title = 'Sedang login sebagai Admin'; ab.classList.add('unlocked'); ab.style.display = '';
+            ub.style.display = 'none';
+            return;
+        }
+        ab.innerHTML = LOCK_CLOSED; ab.title = 'System Access'; ab.classList.remove('unlocked');
+        ab.style.display = userIn ? 'none' : '';
+        ub.style.display = '';
+        ub.style.right = userIn ? '5%' : '';
+    }
+
     function updateUserTrigger() {
         const btn = document.getElementById('user-btn');
         if (!btn) return;
+        updateAuthIcons();
         const rec = getCurrentRecord();
         if (!rec) { btn.className = 'user-trigger'; btn.title = 'Login'; btn.innerHTML = PERSON_SVG; updateChatWidget(); return; }
         btn.className = 'user-trigger logged-in ' + (currentUser.role === 'worker' ? 'is-worker' : 'is-customer');
@@ -2715,12 +2739,12 @@ window.NexBoot = function () {
         let radius = Math.round((260 / 2) / Math.tan(Math.PI / cards.length)) + 60;
         if (carouselId === 'admin-carousel') radius = Math.max(260, radius);
 
-        let tA = 0; let cA = 0; let isD = false; let sX = 0; let vel = 0; let lX = 0; let lT = 0;
+        let tA = 0; let cA = 0; let isD = false; let sX = 0; let vel = 0; let lX = 0; let lT = 0; let moved = 0;
         cards.forEach((c, i) => { 
             c.style.transform = `rotateY(${i*(360/cards.length)}deg) translateZ(${radius}px)`; c.dataset.angle = i*(360/cards.length); 
             
             c.addEventListener('click', () => {
-                if (Math.abs(vel) < 0.1) {
+                if (moved < 6) {
                     if (carouselId === 'carousel') {
                         if (!currentUser) { pendingCategory = c.dataset.category; openUserLogin(); } else { openMainCategory(c.dataset.category); }
                     } else if (carouselId === 'admin-carousel') {
@@ -2762,7 +2786,7 @@ window.NexBoot = function () {
             }); 
             requestAnimationFrame(anim);
         }
-        function sD(cx) { isD=true; sX=cx; lX=cx; lT=Date.now(); vel=0; } function dD(cx) { if(!isD)return; const dt=Date.now()-lT; if(dt>0) vel=(cx-lX)/dt; cA+=(cx-lX)/3; tA=cA; lX=cx; lT=Date.now(); } function eD() { if(!isD)return; isD=false; tA=Math.round((cA+(vel*120))/(360/cards.length))*(360/cards.length); }
+        function sD(cx) { isD=true; sX=cx; lX=cx; lT=Date.now(); vel=0; moved=0; } function dD(cx) { if(!isD)return; moved=Math.max(moved, Math.abs(cx-sX)); if(moved>=6) scene.classList.add('dragging'); const dt=Date.now()-lT; if(dt>0) vel=(cx-lX)/dt; cA+=(cx-lX)/3; tA=cA; lX=cx; lT=Date.now(); } function eD() { if(!isD)return; isD=false; scene.classList.remove('dragging'); tA=Math.round((cA+(vel*120))/(360/cards.length))*(360/cards.length); }
         scene.addEventListener('mousedown', (e)=>sD(e.pageX)); window.addEventListener('mousemove', (e)=>dD(e.pageX)); window.addEventListener('mouseup', eD);
         scene.addEventListener('touchstart', (e)=>sD(e.touches[0].pageX), {passive: true}); window.addEventListener('touchmove', (e)=>dD(e.touches[0].pageX), {passive: true}); window.addEventListener('touchend', eD);
         window.addEventListener('mouseleave', () => { if(isD) eD(); }); anim();
