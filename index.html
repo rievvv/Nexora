@@ -438,6 +438,15 @@
                     <p class="logo-subtitle"><span>B</span><span>e</span><span>y</span><span>o</span><span>n</span><span>d</span><span>&nbsp;</span><span>V</span><span>i</span><span>s</span><span>i</span><span>o</span><span>n</span><span>,</span><span>&nbsp;</span><span>I</span><span>n</span><span>t</span><span>o</span><span>&nbsp;</span><span>R</span><span>e</span><span>a</span><span>l</span><span>i</span><span>t</span><span>y</span></p>
                 </header>
 
+                <div class="banner-section" id="banner-section">
+                    <div class="banner-slider" id="banner-slider">
+                        <div class="banner-track" id="banner-track"></div>
+                        <button type="button" class="banner-nav prev" id="banner-prev" aria-label="Sebelumnya">&#10094;</button>
+                        <button type="button" class="banner-nav next" id="banner-next" aria-label="Berikutnya">&#10095;</button>
+                        <div class="banner-dots" id="banner-dots"></div>
+                    </div>
+                </div>
+
                 <main class="glass-container">
                     <div class="scene" id="scene">
                         <div class="carousel" id="carousel">
@@ -454,15 +463,6 @@
                 </main>
 
                 <div class="btn-wrapper"><button type="button" id="btn-regist" class="btn-futuristic">Join Now</button></div>
-
-                <div class="banner-section" id="banner-section">
-                    <div class="banner-slider" id="banner-slider">
-                        <div class="banner-track" id="banner-track"></div>
-                        <button type="button" class="banner-nav prev" id="banner-prev" aria-label="Sebelumnya">&#10094;</button>
-                        <button type="button" class="banner-nav next" id="banner-next" aria-label="Berikutnya">&#10095;</button>
-                        <div class="banner-dots" id="banner-dots"></div>
-                    </div>
-                </div>
 
                 <div class="video-section">
                     <h2 class="section-title">KARYA TERBARU KAMI</h2>
@@ -492,34 +492,32 @@
         </div>
 
         <!-- REVISI 2: HALAMAN 2 (CHOOSE YOUR ROLE) DENGAN HEADER & FOOTER SEPERTI HALAMAN UTAMA -->
-        <div id="page-2" class="page-container page-hidden" style="display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; position: relative;">
+        <div id="page-2" class="page-container page-hidden role-page">
             
             <header>
                 <div class="logo-crop"><img src="logo nexora.svg" alt="Nexora Logo" class="logo-img"></div>
                 <p class="logo-subtitle"><span>B</span><span>e</span><span>y</span><span>o</span><span>n</span><span>d</span><span>&nbsp;</span><span>V</span><span>i</span><span>s</span><span>i</span><span>o</span><span>n</span><span>,</span><span>&nbsp;</span><span>I</span><span>n</span><span>t</span><span>o</span><span>&nbsp;</span><span>R</span><span>e</span><span>a</span><span>l</span><span>i</span><span>t</span><span>y</span></p>
             </header>
 
-            <main style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px;">
+            <main class="role-main">
                 <h2 class="page-title">CHOOSE YOUR ROLE</h2>
                 
-                <div class="role-selection-container" style="margin-bottom: 30px;">
+                <div class="role-selection-container">
                     <!-- Kartu Customer -->
                     <div class="role-card" id="card-customer">
                         <div class="icon">👥</div>
-                        <h3>Customer</h3>
-                        <p>Pesan layanan, pantau progres proyek, dan wujudkan visi bisnis Anda bersama kami.</p>
+                        <div class="role-text"><h3>Customer</h3><p>Pesan layanan, pantau progres proyek, dan wujudkan visi bisnis Anda bersama kami.</p></div>
                     </div>
                     
                     <!-- Kartu Worker -->
                     <div class="role-card" id="card-worker">
                         <div class="icon">🧑‍💻</div>
-                        <h3>Worker</h3>
-                        <p>Bergabung sebagai mitra ahli, kerjakan proyek, dan tingkatkan income Anda.</p>
+                        <div class="role-text"><h3>Worker</h3><p>Bergabung sebagai mitra ahli, kerjakan proyek, dan tingkatkan income Anda.</p></div>
                     </div>
                 </div>
 
                 <!-- REVISI 4: Tombol Kembali Berada di Bawah Card -->
-                <div style="text-align: center; z-index: 10;">
+                <div class="role-back-wrap">
                     <button type="button" id="btn-back" class="btn-back-menu">&larr; KEMBALI</button>
                 </div>
             </main>
@@ -606,7 +604,7 @@
                         <button type="button" class="btn-futuristic" id="btn-fin-add" style="padding: 8px 20px; font-size: 0.85rem;">+ TRANSAKSI MANUAL</button>
                     </div>
                     <div class="data-table-wrapper">
-                        <table class="data-table" style="min-width: 1200px;">
+                        <table class="data-table fin-table">
                             <thead><tr><th style="width: 50px;">NO.</th><th>ID KEUANGAN</th><th>TANGGAL</th><th>NAMA PRODUK</th><th>KODE PESANAN / ID WORKER</th><th>UANG MASUK</th><th>UANG KELUAR</th><th style="text-align:center;">BAGI HASIL</th><th>TOTAL INCOME</th><th style="width: 50px;"></th></tr></thead>
                             <tbody id="finance-table-tbody"></tbody>
                             <tfoot id="finance-table-tfoot"></tfoot>
@@ -642,7 +640,7 @@
                             <span class="icon">➕</span>
                             <span style="font-weight: bold; font-size: 1.2rem;">Tambahkan Konten Video</span>
                         </div>
-                        <div id="admin-video-list" class="video-grid" style="grid-template-columns: repeat(3, 1fr);"></div>
+                        <div id="admin-video-list" class="video-grid admin-video-grid"></div>
                     </div>
 
                     <!-- UPLOAD VIDEO FORM -->
@@ -856,7 +854,28 @@
 
     </div>
 
+    <!-- Penerjemah web otomatis -->
+    <div id="google_translate_element" class="notranslate" aria-hidden="true"></div>
+    <div class="lang-switcher notranslate" id="lang-switcher" translate="no">
+        <button type="button" class="lang-btn" id="lang-btn" aria-haspopup="listbox" aria-expanded="false" title="Language / Bahasa / اللغة / 语言">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+            <span id="lang-current">ID</span>
+        </button>
+        <ul class="lang-menu" id="lang-menu" role="listbox">
+            <li data-lang="id" role="option"><b>ID</b> Bahasa Indonesia</li>
+            <li data-lang="en" role="option"><b>EN</b> English</li>
+            <li data-lang="ar" role="option"><b>AR</b> العربية</li>
+            <li data-lang="zh-CN" role="option"><b>中文</b> 简体中文</li>
+        </ul>
+    </div>
+
     <script src="data.js"></script>
     <script src="script.js"></script>
+    <script src="persist.js"></script>
+    <script src="translate.js"></script>
+    <script>
+        // Pengaman: jika persist.js gagal dimuat, aplikasi tetap dijalankan
+        setTimeout(function () { if (!window.__nexBooted && typeof window.NexBoot === 'function') window.NexBoot(); }, 4000);
+    </script>
 </body>
 </html>

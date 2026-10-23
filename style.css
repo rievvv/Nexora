@@ -529,3 +529,117 @@ img, video { max-width: 100%; }
     .portal-logo-crop { width: 120px; } .portal-tagline { width: 120px; }
     .role-card { width: 100%; max-width: 300px; }
 }
+/* =========================================================
+   PERBAIKAN V2
+   ========================================================= */
+
+/* ---- 1. Layout HP: halaman tidak boleh melebar karena tabel/konten lebar ---- */
+.app-wrapper { grid-template-columns: minmax(0, 1fr); }
+.page-container { min-width: 0; max-width: 100%; }
+.glass-container, .admin-glass-container, .table-view-container, .profile-dashboard,
+.video-section, .banner-section, .admin-notif-area, #content-list-view, #content-upload-view,
+#banner-manage-view, #product-list-view, #product-upload-view { min-width: 0; max-width: 100%; }
+.data-table-wrapper { max-width: 100%; -webkit-overflow-scrolling: touch; }
+.fin-table { min-width: 1100px; }
+.admin-video-grid { grid-template-columns: repeat(3, 1fr); }
+.cms-category-slider { -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 768px) {
+    .portal-topbar { align-items: center; }
+    .topbar-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+    .admin-glass-container { padding: 28px 12px 60px; border-radius: 28px; margin-bottom: 24px; }
+    .admin-glass-container::before { border-radius: 28px; }
+    .admin-page-title { font-size: 1.25rem; letter-spacing: 2px; margin-bottom: 26px; }
+    .table-view-container { padding: 6px 0; min-height: 0; }
+    .table-header-controls .btn-back-menu, .table-header-controls button { align-self: center; }
+    .admin-tabs { justify-content: center; gap: 8px; }
+    .cms-category-slider { gap: 10px; }
+    .fin-card .val { font-size: 0.95rem; }
+    .form-grid { grid-template-columns: 1fr !important; }
+    .modal-box, .profile-modal-box { max-height: 92dvh; overflow-y: auto; }
+    .setup-input, input, select, textarea { max-width: 100%; }
+    .data-table { min-width: 760px; }
+    .fin-table { min-width: 1000px; }
+    .video-section { width: 94%; margin-top: 40px; }
+    .section-title { font-size: 1.35rem; letter-spacing: 3px; }
+}
+
+/* ---- 3. Banner di atas menu card (halaman utama) ---- */
+#main-view-default .banner-section { margin: 26px auto 0; }
+#main-view-default .banner-section + .glass-container { margin-top: 26px; }
+@media (max-width: 768px) {
+    #main-view-default .banner-section { margin-top: 18px; }
+    #main-view-default .banner-section + .glass-container { margin-top: 18px; }
+}
+
+/* ---- 2. Halaman "Choose Your Role" ---- */
+.role-page { min-height: 100vh; min-height: 100dvh; position: relative; }
+.role-main { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 20px; }
+.role-selection-container { margin-bottom: 30px; }
+.role-back-wrap { text-align: center; z-index: 10; }
+.role-card { position: relative; overflow: hidden; }
+.role-card .role-arrow { display: none; }
+
+@media (max-width: 768px) {
+    .role-page { min-height: 0; }
+    .role-main { flex: 0 0 auto; justify-content: flex-start; padding: 26px 18px 8px; width: 100%; }
+    .role-page .page-title { margin: 0; font-size: 1.05rem; letter-spacing: 4px; }
+    .role-page .page-title::after { content: ''; display: block; width: 46px; height: 3px; margin: 14px auto 0; border-radius: 3px; background: linear-gradient(90deg, #00f2fe, #ff0055); box-shadow: 0 0 12px rgba(0,242,254,0.6); }
+    .role-selection-container { flex-direction: column; flex-wrap: nowrap; gap: 14px; width: 100%; max-width: 420px; margin: 24px 0 18px; }
+    .role-card { width: 100%; max-width: none; height: auto; flex-direction: row; justify-content: flex-start; text-align: left; gap: 16px; padding: 18px; border-radius: 22px;
+        background: linear-gradient(135deg, rgba(0,242,254,0.12) 0%, rgba(255,255,255,0.03) 55%, rgba(255,255,255,0.02) 100%);
+        border: 1px solid rgba(0,242,254,0.28); box-shadow: 0 6px 24px rgba(0,0,0,0.35); }
+    .role-card#card-worker { background: linear-gradient(135deg, rgba(255,0,85,0.13) 0%, rgba(255,255,255,0.03) 55%, rgba(255,255,255,0.02) 100%); border-color: rgba(255,0,85,0.3); }
+    .role-card .icon { flex: 0 0 66px; width: 66px; height: 66px; margin: 0; font-size: 2.2rem; display: flex; justify-content: center; align-items: center; border-radius: 18px; background: rgba(0,242,254,0.1); border: 1px solid rgba(0,242,254,0.35); text-shadow: none; animation: none; }
+    .role-card#card-worker .icon { background: rgba(255,0,85,0.1); border-color: rgba(255,0,85,0.4); }
+    .role-card h3 { font-size: 1.1rem; margin-bottom: 4px; }
+    .role-card p { font-size: 0.8rem; line-height: 1.45; }
+    .role-card::after { content: '\203A'; margin-left: auto; padding-left: 4px; font-size: 1.9rem; line-height: 1; color: rgba(255,255,255,0.45); }
+    .role-card:hover, .role-card:active { transform: scale(0.99); }
+    .role-back-wrap { margin-bottom: 6px; }
+    .role-page .footer-text { padding-top: 14px; }
+}
+
+/* ---- 7. Teks boleh diblok / disalin / diterjemahkan ---- */
+html, body { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+button, .btn-futuristic, .btn-back-menu, .btn-buy, .btn-logout, .btn-home, .user-trigger, .admin-trigger,
+.logo-crop, .portal-logo-wrap, .scene, .carousel, .card, .admin-carousel, .admin-card, .role-card,
+.swipe-instruction, .banner-slider, .banner-nav, .banner-dots, .chat-fab, .lang-switcher,
+.cms-category-slider, .admin-tab, .checkbox-label, .vid-upload-label, .cyber-grid, .laser-drop {
+    -webkit-user-select: none; user-select: none;
+}
+input, textarea, select, [contenteditable] { -webkit-user-select: text; user-select: text; }
+.goog-text-highlight { background: none !important; box-shadow: none !important; }
+
+/* ---- 8. Penerjemah web otomatis ---- */
+#google_translate_element { position: absolute; left: -9999px; top: 0; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
+.goog-te-banner-frame, iframe.goog-te-banner-frame, iframe.skiptranslate, .VIpgJd-ZVi9od-ORHb-OEVmcd,
+.VIpgJd-ZVi9od-aZ2wEe-wOHMyf, .goog-te-balloon-frame, #goog-gt-tt, .goog-tooltip { display: none !important; }
+body { top: 0 !important; }
+
+.lang-switcher { position: fixed; left: 14px; bottom: 14px; z-index: 900; font-family: inherit; }
+.lang-btn { display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 14px 0 11px; border-radius: 19px; cursor: pointer;
+    background: rgba(11,17,32,0.82); color: #fff; border: 1px solid rgba(0,242,254,0.45); font-family: inherit; font-weight: 700; font-size: 0.78rem; letter-spacing: 1px;
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 18px rgba(0,0,0,0.4); transition: all 0.25s ease; }
+.lang-btn svg { width: 17px; height: 17px; color: #00f2fe; }
+.lang-btn:hover { border-color: #00f2fe; box-shadow: 0 0 16px rgba(0,242,254,0.4); }
+.lang-menu { list-style: none; position: absolute; left: 0; bottom: 46px; min-width: 190px; padding: 6px; border-radius: 16px; display: none;
+    background: rgba(11,17,32,0.96); border: 1px solid rgba(0,242,254,0.35); box-shadow: 0 10px 34px rgba(0,0,0,0.55); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.lang-switcher.open .lang-menu { display: block; animation: fadeIn 0.25s ease; }
+.lang-menu li { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; cursor: pointer; font-size: 0.86rem; color: rgba(255,255,255,0.85); }
+.lang-menu li b { min-width: 34px; font-size: 0.72rem; letter-spacing: 1px; color: #00f2fe; }
+.lang-menu li:hover { background: rgba(0,242,254,0.1); }
+.lang-menu li.active { background: rgba(0,242,254,0.18); color: #fff; }
+@media (max-width: 768px) { .lang-switcher { left: 10px; bottom: 12px; } .lang-btn { height: 36px; } }
+
+/* Arab: tata letak kanan-ke-kiri (carousel, banner & tabel tetap rapi) */
+html[data-lang="ar"] body { direction: rtl; }
+html[data-lang="ar"] .scene, html[data-lang="ar"] .carousel, html[data-lang="ar"] .admin-carousel,
+html[data-lang="ar"] .banner-slider, html[data-lang="ar"] .logo-crop, html[data-lang="ar"] .logo-subtitle,
+html[data-lang="ar"] .lang-switcher, html[data-lang="ar"] .social-links { direction: ltr; }
+html[data-lang="ar"] .lang-menu li { direction: rtl; }
+.role-text { display: block; }
+@media (max-width: 768px) {
+    .role-text { flex: 1; min-width: 0; }
+    .role-page .page-title { display: block; }
+}

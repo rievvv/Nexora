@@ -1,6 +1,8 @@
 /* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, adminDB_Login, calculateLevel, calculateCustomerLevel, formatRp */
 
-document.addEventListener('DOMContentLoaded', () => {
+window.NexBoot = function () {
+    if (window.__nexBooted) return;
+    window.__nexBooted = true;
 
     /* =========================================
        CUSTOM ALERTS & CONFIRMS
@@ -53,9 +55,63 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentPageId = 'page-1';
     let isAnimating = false;
 
-    window.navigateTo = function(targetPageId, direction = 'forward') {
+    /* =========================================
+       RIWAYAT NAVIGASI (Back / Forward browser & tombol samping mouse)
+       ========================================= */
+    let navIdx = 0;
+    let restoringNav = false;
+    let adminAuthed = false;
+    let navRetry = null;
+
+    function pushNav(extra) {
+        if (restoringNav) return;
+        navIdx++;
+        try { history.pushState(Object.assign({ nex: 1, idx: navIdx }, extra), '', '#' + (extra.page || 'page-1')); } catch (err) {}
+    }
+
+    function showAdminSub(key) {
+        const views = { orders: viewOrders, worker: viewDataWorker, customer: viewDataCustomer, content: viewManageContent, finance: viewFinance, chat: viewChat };
+        Object.keys(views).forEach(k => { views[k].style.display = 'none'; });
+        viewCarousel.style.display = 'none';
+        if (!key || !views[key]) { viewCarousel.style.display = 'flex'; return; }
+        views[key].style.display = 'flex';
+        try {
+            if (key === 'orders') { renderOrdersTable(); markOrdersAsRead(); }
+            if (key === 'worker') renderWorkerTable();
+            if (key === 'customer') renderCustomerTable();
+            if (key === 'content') switchCMSTab('video');
+            if (key === 'finance') renderFinanceTable();
+            if (key === 'chat') renderAdminChatList();
+        } catch (err) {}
+    }
+
+    function applyNav(st, tries) {
+        if (isAnimating && (tries || 0) < 12) { clearTimeout(navRetry); navRetry = setTimeout(() => applyNav(st, (tries || 0) + 1), 250); return; }
+        let target = st.page || 'page-1';
+        if (target === 'page-3' && !adminAuthed) target = 'page-1';
+        if (target === 'page-4' && !(currentUser && currentUser.role === 'customer')) target = 'page-1';
+        if (target === 'page-5' && !(currentUser && currentUser.role === 'worker')) target = 'page-1';
+        const dir = (st.idx || 0) >= navIdx ? 'forward' : 'backward';
+        navIdx = st.idx || 0;
+        restoringNav = true;
+        try {
+            if (target !== currentPageId) navigateTo(target, dir, true);
+            if (target === 'page-1') {
+                if (st.cat && currentUser) openMainCategory(st.cat); else closeMainCategory();
+            }
+            if (target === 'page-3' && adminAuthed) showAdminSub(st.adm || '');
+        } finally { restoringNav = false; }
+    }
+
+    window.addEventListener('popstate', (e) => {
+        const st = (e.state && e.state.nex) ? e.state : { nex: 1, idx: 0, page: 'page-1', cat: '', adm: '' };
+        applyNav(st, 0);
+    });
+
+    window.navigateTo = function(targetPageId, direction = 'forward', fromHistory = false) {
         if (isAnimating || currentPageId === targetPageId) return;
         isAnimating = true;
+        if (!fromHistory) pushNav({ page: targetPageId, cat: targetPageId === 'page-1' ? currentOpenMainCategory : '', adm: '' });
         if (typeof updateChatWidget === 'function') updateChatWidget(targetPageId);
 
         const pageOut = document.getElementById(currentPageId);
@@ -142,6 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (user === 'admin' && pass === 'admin') isValidAdmin = true;
 
         if (isValidAdmin) {
+            adminAuthed = true;
             document.getElementById('login-error-admin').style.display = 'none';
             document.getElementById('admin-modal').classList.remove('active'); 
             
@@ -166,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const btnLogoutAdmin = document.getElementById('btn-logout-admin');
     if (btnLogoutAdmin) btnLogoutAdmin.addEventListener('click', () => { 
+        adminAuthed = false;
         document.getElementById('admin-carousel-view').style.display = 'flex';
         document.getElementById('admin-orders-view').style.display = 'none';
         document.getElementById('admin-data-worker-view').style.display = 'none';
@@ -184,6 +242,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewChat = document.getElementById('admin-chat-view');
 
     document.addEventListener('click', function(e) {
+        const mm = e.target && e.target.id && /^btn-menu-(orders|worker|customer|content|finance|chat)$/.exec(e.target.id);
+        if (mm) pushNav({ page: 'page-3', adm: mm[1], cat: '' });
         if (e.target && e.target.id === 'btn-menu-orders') { 
             viewCarousel.style.display = 'none'; 
             viewOrders.style.display = 'flex'; 
@@ -998,6 +1058,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentOpenMainCategory = "";
 
     window.openMainCategory = function(category) {
+        if (currentOpenMainCategory !== category) pushNav({ page: 'page-1', cat: category, adm: '' });
         currentOpenMainCategory = category;
         document.getElementById('main-view-default').style.display = 'none';
         document.getElementById('main-view-category').style.display = 'flex';
@@ -1131,8 +1192,26 @@ document.addEventListener('DOMContentLoaded', () => {
         return db.find(x => x.id === currentUser.id) || null;
     }
 
-    function setSession(role, id) { currentUser = { role: role, id: id }; updateUserTrigger(); }
-    function clearSession() { currentUser = null; pendingCategory = ''; updateUserTrigger(); closeMainCategory(); }
+    function setSession(role, id) {
+        currentUser = { role: role, id: id };
+        try { localStorage.setItem('nex_session', JSON.stringify(currentUser)); } catch (err) {}
+        updateUserTrigger();
+    }
+    function clearSession() {
+        currentUser = null; pendingCategory = '';
+        try { localStorage.removeItem('nex_session'); } catch (err) {}
+        updateUserTrigger(); closeMainCategory();
+    }
+    function restoreSession() {
+        try {
+            const sv = JSON.parse(localStorage.getItem('nex_session') || 'null');
+            if (!sv || !sv.role || !sv.id) return;
+            const rec = (sv.role === 'worker' ? workersDB : customersDB).find(x => x.id === sv.id);
+            if (!rec || rec.status === 'Declined') { localStorage.removeItem('nex_session'); return; }
+            currentUser = { role: sv.role, id: sv.id };
+            try { fillDashboard(sv.role, rec); } catch (err) {}
+        } catch (err) {}
+    }
 
     // Icon login -> foto profil (tanpa ikon gembok) setelah login
     function updateUserTrigger() {
@@ -1989,10 +2068,12 @@ document.addEventListener('DOMContentLoaded', () => {
     
     initCarousel('carousel', 'scene', 'card', null); 
     initCarousel('admin-carousel', 'admin-scene', 'admin-card', '#00f2fe');
+    restoreSession();
     renderAdminNotifications();
     updateOrderBadge();
     updateUserTrigger();
     renderBanners();
     updateChatBadges();
+    try { history.replaceState({ nex: 1, idx: 0, page: 'page-1', cat: '', adm: '' }, '', location.pathname + location.search); } catch (err) {}
 
-});
+};
