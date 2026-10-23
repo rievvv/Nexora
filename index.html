@@ -86,6 +86,29 @@
         </div>
     </div>
 
+    <!-- MODAL SANDI HAPUS DATA (6 digit) -->
+    <div class="modal-overlay" id="delete-pass-modal">
+        <div class="modal-box" style="max-width: 360px;">
+            <div class="success-checkmark" style="width:60px; height:60px; font-size:1.5rem; color:#ff0055; margin-bottom:15px; animation:none; box-shadow:0 0 15px rgba(255,0,85,0.3); border-color:#ff0055;">🗑️</div>
+            <h3 style="color: #ff0055; font-size: 1.1rem; margin-bottom: 10px;">HAPUS DATA</h3>
+            <p id="dp-msg" style="color: rgba(255,255,255,0.8); font-size: 0.9rem; margin-bottom: 18px; line-height:1.5;"></p>
+            <input type="password" id="dp-input" class="admin-input dp-input" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="● ● ● ● ● ●" style="text-align:center; letter-spacing:10px; font-size:1.3rem; margin-bottom:8px;">
+            <p id="dp-error" class="error-msg" style="display:none; margin-bottom:10px;">Sandi 6 digit salah!</p>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button type="button" id="dp-cancel" class="btn-futuristic" style="flex:1; background:transparent; border-color:rgba(255,255,255,0.2); color:#fff; padding:10px;">BATAL</button>
+                <button type="button" id="dp-ok" class="btn-futuristic" style="flex:1; background:rgba(255,0,85,0.15); border-color:#ff0055; color:#ff0055; padding:10px;">HAPUS</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL PRODUK / PILIH PAKET & WORKER -->
+    <div class="modal-overlay" id="product-detail-modal">
+        <div class="modal-box pd-box">
+            <div id="pd-body"></div>
+            <div class="close-modal" id="pd-close" style="text-align:center; border-top:1px solid rgba(255,255,255,0.1); padding-top:15px;">Tutup</div>
+        </div>
+    </div>
+
     <!-- 4, 5, 6. MODAL PEMBAYARAN MANUAL QRIS & REKENING DAPAT DISALIN -->
     <div class="modal-overlay" id="payment-modal">
         <div class="modal-box" style="max-width: 440px;">
@@ -634,7 +657,14 @@
                         <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-chat-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
                     </div>
                     <div class="admin-chat-layout" id="admin-chat-layout">
-                        <div class="admin-chat-list" id="admin-chat-list"></div>
+                        <div class="admin-chat-side">
+                            <div class="admin-chat-tabs">
+                                <button type="button" class="admin-tab active" id="achat-tab-worker" onclick="switchAdminChatTab('worker')">🧑‍💻 Chat Worker <span class="tab-badge" id="achat-badge-worker" style="display:none;"></span></button>
+                                <button type="button" class="admin-tab" id="achat-tab-customer" onclick="switchAdminChatTab('customer')">🛒 Chat Customer <span class="tab-badge" id="achat-badge-customer" style="display:none;"></span></button>
+                            </div>
+                            <input type="text" id="admin-chat-search" class="admin-input" placeholder="Cari nama / ID Nexora..." autocomplete="off">
+                            <div class="admin-chat-list" id="admin-chat-list"></div>
+                        </div>
                         <div class="admin-chat-thread" id="admin-chat-thread"><div class="chat-empty">Pilih percakapan di sebelah kiri.</div></div>
                     </div>
                 </div>
@@ -745,6 +775,12 @@
                             <div class="form-group full-width"><label>Nama Produk / Jasa <span class="req">*</span></label><input type="text" id="up-prod-name" class="setup-input" placeholder="Cth: Logo Esport Premium"></div>
                             <div class="form-group"><label>Estimasi Harga (Opsional)</label><input type="text" inputmode="numeric" autocomplete="off" id="up-prod-price" class="setup-input" placeholder="Kosongkan jika harga custom" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')"></div>
                             <div class="form-group"><label>Link Eksternal (Opsional)</label><input type="url" id="up-prod-link" class="setup-input" placeholder="https://... (Kosongkan untuk QRIS Manual)"></div>
+                            <div class="form-group full-width"><label>Deskripsi Produk / Jasa</label><textarea id="up-prod-desc" class="setup-input" rows="5" placeholder="Jelaskan produk/jasa: apa yang didapat, proses pengerjaan, ketentuan revisi, dll." style="resize:vertical; font-family:inherit;"></textarea></div>
+                            <div class="form-group full-width" id="up-prod-pkg-wrap" style="display:none;">
+                                <label>Paket Jasa (customer memilih salah satu)</label>
+                                <div id="up-prod-pkg-list"></div>
+                                <button type="button" class="btn-futuristic" id="btn-add-pkg" style="width:100%; padding:10px; background:transparent;">+ TAMBAH PAKET</button>
+                            </div>
                         </div>
                         <button type="button" id="btn-submit-product" class="btn-futuristic" style="width:100%; margin-top:20px;" disabled>SIMPAN PRODUK KONTEN</button>
                         <button type="button" class="btn-futuristic" style="width:100%; margin-top:10px; background:transparent; color:#ff0055; border-color:#ff0055;" onclick="document.getElementById('product-upload-view').style.display='none'; document.getElementById('product-list-view').style.display='block';">BATAL</button>
@@ -766,7 +802,7 @@
                     </div>
                     <div class="data-table-wrapper">
                         <table class="data-table">
-                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID WORKER</th><th>NAMA WORKER</th><th>LEVEL WORKER</th><th>STATUS (ADJUST)</th><th style="text-align: center; width: 120px;">AKSI</th></tr></thead>
+                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID WORKER</th><th>NAMA WORKER</th><th>LEVEL WORKER</th><th>STATUS (ADJUST)</th><th style="text-align: center; width: 150px;">AKSI</th></tr></thead>
                             <tbody id="worker-list-tbody"></tbody>
                         </table>
                     </div>
@@ -786,7 +822,7 @@
                     </div>
                     <div class="data-table-wrapper">
                         <table class="data-table">
-                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID CUSTOMER</th><th>NAMA / BISNIS</th><th>LEVEL PELANGGAN</th><th>STATUS (ADJUST)</th><th style="text-align:center; width:110px;">DETAIL</th></tr></thead>
+                            <thead><tr><th style="width: 80px; text-align: center;">FOTO</th><th>ID CUSTOMER</th><th>NAMA / BISNIS</th><th>LEVEL PELANGGAN</th><th>STATUS (ADJUST)</th><th style="text-align:center; width:150px;">AKSI</th></tr></thead>
                             <tbody id="customer-list-tbody"></tbody>
                         </table>
                     </div>
@@ -819,6 +855,7 @@
                     <div class="form-group"><label>Nomor Induk Kependudukan (NIK)</label><input type="text" id="dash-c-nik" class="setup-input" placeholder="" disabled ></div>
                     <div class="form-group"><label>Level & Diskon</label><input type="text" id="dash-c-level" class="setup-input" placeholder="" disabled ></div>
                     <div class="form-group"><label>Status Akun</label><input type="text" id="dash-c-status" class="setup-input" placeholder="" disabled style="color:#ffaa00; font-weight:bold;"></div>
+                    <div class="form-group full-width" id="dash-c-levelprog"></div>
                     <div class="dash-section full-width">Data Diri / Instansi</div>
                     <div class="form-group"><label>Jenis Akun</label><select id="dash-c-type" class="setup-input"><option value="Personal">Personal (Perorangan)</option><option value="Corporate">Corporate (Perusahaan / Instansi)</option></select></div>
                     <div class="form-group"><label>Nama Lengkap / Instansi <span class="req">*</span></label><input type="text" id="dash-c-name" class="setup-input" placeholder="Nama lengkap atau instansi" ></div>
@@ -870,6 +907,7 @@
                     <div class="form-group"><label>Level Worker</label><input type="text" id="dash-w-level" class="setup-input" placeholder="" disabled ></div>
                     <div class="form-group"><label>Saldo Pendapatan</label><input type="text" id="dash-w-balance" class="setup-input" placeholder="" disabled ></div><div class="form-group"><label>Saldo Tersisa (Pocket)</label><input type="text" id="dash-w-remaining" class="setup-input" placeholder="" disabled style="color:#00f2fe; font-weight:800;"></div><div class="form-group full-width"><button type="button" class="btn-futuristic pk-open" onclick="openPocket()">💰 BUKA POCKET &amp; CAIRKAN SALDO</button></div>
                     <div class="form-group full-width"><label>Status Akun</label><input type="text" id="dash-w-status" class="setup-input" placeholder="" disabled style="color:#ffaa00; font-weight:bold;"></div>
+                    <div class="form-group full-width" id="dash-w-levelprog"></div>
                     <div class="dash-section full-width">Data Diri</div>
                     <div class="form-group"><label>Nama Lengkap (Sesuai KTP) <span class="req">*</span></label><input type="text" id="dash-w-name" class="setup-input" placeholder="Nama lengkap" ></div>
                     <div class="form-group"><label>Nama Panggilan / Tampilan Katalog</label><input type="text" id="dash-w-nick" class="setup-input" placeholder="Nama panggilan" ></div>

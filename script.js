@@ -34,6 +34,29 @@ window.NexBoot = function () {
         modal.classList.add('active');
     };
 
+    // Penghapusan data apa pun wajib memakai sandi 6 digit
+    const DELETE_PASS = '070809';
+    window.askDeletePassword = function(msg, onOk) {
+        const modal = document.getElementById('delete-pass-modal');
+        const input = document.getElementById('dp-input');
+        const err = document.getElementById('dp-error');
+        const ok = document.getElementById('dp-ok');
+        const no = document.getElementById('dp-cancel');
+        document.getElementById('dp-msg').innerHTML = msg;
+        input.value = ''; err.style.display = 'none';
+        const close = () => { modal.classList.remove('active'); input.blur(); };
+        const submit = () => {
+            if (input.value.trim() === DELETE_PASS) { close(); if (onOk) onOk(); }
+            else { err.style.display = 'block'; input.value = ''; input.focus(); }
+        };
+        ok.onclick = submit;
+        no.onclick = close;
+        input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); submit(); } };
+        input.oninput = () => { input.value = input.value.replace(/\D/g, '').slice(0, 6); err.style.display = 'none'; };
+        modal.classList.add('active');
+        setTimeout(() => input.focus(), 60);
+    };
+
     // REVISI 6: Fungsi Salin Teks (Clipboard)
     window.copyToClipboard = function(text) {
         const done = () => customAlert("Berhasil disalin ke clipboard: <strong>" + text + "</strong>");
@@ -267,21 +290,27 @@ window.NexBoot = function () {
        ========================================= */
     let currentActiveOrder = null;
 
-    window.buyProduct = function(id) {
+    window.buyProduct = function(id, opt) {
+        opt = opt || {};
         const p = productsDB.find(x => x.id === id);
         if(!p) return;
         if (!currentUser) { openUserLogin(); return; }
         if(p.link && p.link !== "") {
             window.open(p.link, '_blank');
         } else {
-            let basePrice = p.price ? (parseInt(String(p.price).replace(/\D/g, ''), 10) || 500000) : 500000;
+            const pkList = productPackages(p);
+            const chosen = (opt.pkgIdx !== null && opt.pkgIdx !== undefined && pkList[opt.pkgIdx]) ? pkList[opt.pkgIdx] : null;
+            const reqW = (opt.workerId && JASA_CATEGORIES.includes(p.category)) ? workersDB.find(w => w.id === opt.workerId) : null;
+            const orderName = chosen ? `${p.name} - Paket ${chosen.name}` : p.name;
+            const extraWa = (chosen ? '%0APaket : ' + encodeURIComponent(chosen.name) : '') + (reqW ? '%0AWorker Pilihan : ' + encodeURIComponent(reqW.name + ' (' + reqW.id + ')') : '');
+            let basePrice = (chosen && chosen.price) ? chosen.price : (p.price ? (parseInt(String(p.price).replace(/\D/g, ''), 10) || 500000) : 500000);
             let uniqueCode = Math.floor(100 + Math.random() * 900);
             let finalPrice = basePrice + uniqueCode;
 
             // REVISI 4: Objek pesanan disiapkan (akan dimasukkan ke database saat klik tombol WhatsApp)
             currentActiveOrder = {
                 id: `ORD-${Math.floor(100000 + Math.random() * 900000)}`,
-                productName: p.name,
+                productName: orderName,
                 productImg: p.imgUrl || '',
                 nominal: finalPrice,
                 status: "Pending",
@@ -296,13 +325,16 @@ window.NexBoot = function () {
                 uniqueCode: uniqueCode,
                 customerId: currentUser.id,
                 customerName: (getCurrentRecord() || {}).name || '',
-                customerRole: currentUser.role
+                customerRole: currentUser.role,
+                packageName: chosen ? chosen.name : '',
+                requestedWorkerId: reqW ? reqW.id : '',
+                requestedWorkerName: reqW ? reqW.name : ''
             };
 
             document.getElementById('qris-unique-amount').innerText = formatRp(finalPrice);
 
             // REVISI 5: Format pesan konfirmasi WhatsApp
-            let waMsg = `*Konfirmasi Pembelian*%0ANama Produk : ${p.name}%0ANomimal Transfer : ${formatRp(finalPrice)}%0ABank Transfer : BCA%0AAtas Nama : Arief Gunawan`;
+            let waMsg = `*Konfirmasi Pembelian*%0ANama Produk : ${orderName}${extraWa}%0ANomimal Transfer : ${formatRp(finalPrice)}%0ABank Transfer : BCA%0AAtas Nama : Arief Gunawan`;
             
             const waBtn = document.getElementById('btn-wa-order-confirm');
             waBtn.href = `https://wa.me/6285123532296?text=${waMsg}`;
@@ -317,7 +349,7 @@ window.NexBoot = function () {
                         updateOrderBadge();
                         // Hubungkan admin dengan pemesan: pesan otomatis masuk ke chat
                         try {
-                            addChatMessage(currentUser.id, 'user', { text: `🛒 Pesanan baru ${currentActiveOrder.id}\nProduk: ${currentActiveOrder.productName}\nNominal: ${formatRp(currentActiveOrder.nominal)}\nMohon konfirmasi pembayaran. Terima kasih.` });
+                            addChatMessage(currentUser.id, 'user', { text: `🛒 Pesanan baru ${currentActiveOrder.id}\nProduk: ${currentActiveOrder.productName}${currentActiveOrder.requestedWorkerId ? '\nWorker pilihan: ' + currentActiveOrder.requestedWorkerName + ' (' + currentActiveOrder.requestedWorkerId + ')' : ''}\nNominal: ${formatRp(currentActiveOrder.nominal)}\nMohon konfirmasi pembayaran. Terima kasih.` });
                             onUserMessageSent(currentUser.id);
                         } catch (err) {}
                     }
@@ -363,7 +395,7 @@ window.NexBoot = function () {
             const tr = document.createElement('tr');
             tr.className = 'data-row';
             tr.addEventListener('click', () => openOrderDetailModal(o.id));
-            const workerDisplay = (o.workerId && o.workerId !== '-') ? `<br><span style="font-size:0.75rem; color:#00f2fe;">Worker: ${escHtml(o.workerId)}</span>` : '';
+            const workerDisplay = (o.workerId && o.workerId !== '-') ? `<br><span style="font-size:0.75rem; color:#00f2fe;">Worker: ${escHtml(o.workerId)}</span>` : (o.requestedWorkerId ? `<br><span style="font-size:0.75rem; color:#ffaa00;">Pilihan customer: ${escHtml(o.requestedWorkerName || '')} (${escHtml(o.requestedWorkerId)})</span>` : '');
             let evalBadge = '';
             if (o.status === 'Complete') { const ev = evaluateOrder(o); evalBadge = `<br><span style="font-size:0.75rem; font-weight:700; color:${ev.color};">${ev.text}</span>`; }
             tr.innerHTML = `
@@ -375,7 +407,7 @@ window.NexBoot = function () {
                     <div style="font-size:0.75rem; color:#ffaa00; margin-top:4px;">Deadline: <input type="date" value="${o.deadlineDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'deadline', this.value)" style="${inputStyle} border-color:#ffaa00;"></div>
                 </td>
                 <td><span style="color:${orderStatusColor(o.status)}; font-weight:bold;">${escHtml(o.status)}</span>${evalBadge}</td>
-                <td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openOrderDetailModal('${o.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-view" title="Hubungi Customer" onclick="event.stopPropagation(); contactOrderCustomer('${o.id}')">💬</button></td>
+                <td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openOrderDetailModal('${o.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-view" title="Hubungi Customer" onclick="event.stopPropagation(); contactOrderCustomer('${o.id}')">💬</button><button type="button" class="btn-action-sm btn-del" title="Hapus Pesanan" onclick="event.stopPropagation(); deleteOrder('${o.id}')">🗑️</button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -429,6 +461,8 @@ window.NexBoot = function () {
             : `<div style="text-align:center; margin-bottom:15px;"><div style="width:160px; height:160px; margin:0 auto; border-radius:16px; border:1px dashed rgba(255,255,255,0.2); display:flex; align-items:center; justify-content:center; font-size:2.5rem; color:rgba(255,255,255,0.3);">🖼️</div></div>`;
         html += odRow('ID Pesanan', `<span style="color:#00f2fe;">${escHtml(o.id)}</span>`);
         html += odRow('Nama Produk', escHtml(o.productName));
+        if (o.packageName) html += odRow('Paket Dipilih', escHtml(o.packageName));
+        if (o.requestedWorkerId && !hasWorker) html += odRow('Worker Pilihan Customer', escHtml(o.requestedWorkerName || '') + ' <span style="font-size:0.75rem; color:rgba(255,255,255,0.5);">(' + escHtml(o.requestedWorkerId) + ')</span>');
         if (o.customerName) html += odRow('Pemesan', escHtml(o.customerName) + ' <span style="font-size:0.75rem; color:rgba(255,255,255,0.5);">(' + escHtml(o.customerId) + ')</span>');
         html += odRow('Nominal', formatRp(o.nominal));
         html += odRow('Tanggal Mulai', fmtDate(o.startDate));
@@ -453,7 +487,7 @@ window.NexBoot = function () {
                         <option value="Complete">Complete</option>
                     </select>
                     <div id="od-worker-box" style="display:${o.status === 'On Process' ? 'block' : 'none'};">
-                        <input type="text" id="od-worker-id" class="admin-input" placeholder="ID Nexora Worker (cth: NEXW-971016-001)" value="${hasWorker ? escHtml(o.workerId) : ''}" style="margin-bottom:10px;">
+                        <input type="text" id="od-worker-id" class="admin-input" placeholder="ID Nexora Worker (cth: NEXW-971016-001)" value="${hasWorker ? escHtml(o.workerId) : escHtml(o.requestedWorkerId || '')}" style="margin-bottom:10px;">
                         <button type="button" class="btn-futuristic" onclick="saveOrderWorker()" style="width:100%; padding:10px;">SIMPAN ON PROCESS</button>
                     </div>
                 </div>`;
@@ -690,10 +724,32 @@ window.NexBoot = function () {
         renderFinanceTable();
     };
 
+    // Hapus baris keuangan + efek sampingnya (total belanja pembeli & penanda di pesanan)
+    function purgeFinanceRows(rows) {
+        rows.forEach(f => {
+            if (f.kind === 'pemasukan' && f.orderId) {
+                const o = ordersDB.find(x => x.id === f.orderId);
+                const buyer = o ? findBuyer(o) : null;
+                if (buyer) buyer.spent = Math.max(0, (buyer.spent || 0) - (f.masuk || 0));
+                if (o) delete o.financeId;
+            }
+            if (f.kind === 'upah' && f.orderId) {
+                const o = ordersDB.find(x => x.id === f.orderId);
+                if (o) delete o.payrollId;
+            }
+        });
+        const ids = new Set(rows.map(f => f.id));
+        financeDB = financeDB.filter(f => !ids.has(f.id));
+    }
     window.deleteFinanceRow = function(id) {
-        customConfirm('Hapus transaksi manual ini?', () => {
-            financeDB = financeDB.filter(f => f.id !== id);
+        const f = financeDB.find(x => x.id === id);
+        if (!f) return;
+        const kids = financeDB.filter(x => x.parent === id);
+        askDeletePassword('Hapus transaksi <strong>' + escHtml(f.id) + '</strong> (' + escHtml(f.productName) + ')?' + (kids.length ? '<br>Catatan upah worker terkait ikut terhapus.' : ''), () => {
+            purgeFinanceRows([f].concat(kids));
+            syncWorkerEarnings();
             renderFinanceTable();
+            try { renderWorkerTable(); renderAdminNotifications(); } catch (err) {}
         });
     };
 
@@ -724,7 +780,7 @@ window.NexBoot = function () {
                 <td style="color:#ff6b8a; font-weight:700;">${f.keluar > 0 ? formatRp(f.keluar) : '-'}</td>
                 <td style="text-align:center;">${pctCell}</td>
                 <td style="color:#00f2fe; font-weight:800;">${inc === null ? '-' : formatRp(inc)}</td>
-                <td>${f.kind === 'manual' ? `<button type="button" class="fin-del" onclick="deleteFinanceRow('${f.id}')" title="Hapus">✕</button>` : ''}</td>`;
+                <td><button type="button" class="fin-del" onclick="deleteFinanceRow('${f.id}')" title="Hapus">✕</button></td>`;
             tb.appendChild(tr);
         });
         if (tf) tf.innerHTML = `<tr><td colspan="5" style="text-align:right;">TOTAL</td><td>${formatRp(sumIn)}</td><td>${formatRp(sumOut)}</td><td></td><td>${formatRp(sumInc)}</td><td></td></tr>`;
@@ -916,7 +972,7 @@ window.NexBoot = function () {
                 <td data-label="REKENING TUJUAN">${escHtml(p.bank)} ${escHtml(p.accNo)}<br><span style="font-size:0.75rem; color:rgba(255,255,255,0.6);">a.n. ${escHtml(p.accName)}</span></td>
                 <td data-label="DIAJUKAN" style="font-size:0.85rem;">${fmtDT(p.requestedAt)}</td>
                 <td data-label="STATUS"><span style="color:${col}; font-weight:bold;">${PO_LABEL[p.status] || escHtml(p.status)}</span></td>
-                <td data-label="AKSI" style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openPayoutDetail('${p.id}')">DETAIL</button></td>`;
+                <td data-label="AKSI" style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openPayoutDetail('${p.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus" onclick="event.stopPropagation(); deletePayout('${p.id}')">🗑️</button></td>`;
             tb.appendChild(tr);
         });
     };
@@ -1132,7 +1188,7 @@ window.NexBoot = function () {
     };
 
     window.deleteVideo = function(id) {
-        customConfirm("Apakah Anda yakin ingin menghapus video ini secara permanen?", () => {
+        askDeletePassword("Hapus <strong>video</strong> ini secara permanen?", () => {
             videosDB = videosDB.filter(v => v.id !== id);
             renderAdminVideoList(); renderMainVideos();
         });
@@ -1264,7 +1320,7 @@ window.NexBoot = function () {
                 </div>
                 <div class="product-info">
                     <h4>${p.name}</h4>
-                    <p class="price">${p.price ? formatRp(parseInt(String(p.price).replace(/\D/g, ''), 10)) : 'Harga Menyesuaikan'}</p>
+                    <p class="price">${productPriceLabel(p)}</p>
                 </div>
                 <div class="admin-vid-actions">
                     <button class="btn-vid-action btn-vid-toggle" onclick="toggleProductStatus('${p.id}', '${category}')">${p.status === 'Available' ? 'MARK SOLD' : 'MARK AVAIL'}</button>
@@ -1288,6 +1344,8 @@ window.NexBoot = function () {
         document.getElementById('up-prod-name').value = '';
         document.getElementById('up-prod-price').value = '';
         document.getElementById('up-prod-link').value = '';
+        document.getElementById('up-prod-desc').value = '';
+        setPkgRows([]); showPkgWrap(currentCMSCategory);
         validateProductUpload();
     });
 
@@ -1314,6 +1372,8 @@ window.NexBoot = function () {
                 productsDB[pIndex].name = document.getElementById('up-prod-name').value.trim();
                 productsDB[pIndex].price = document.getElementById('up-prod-price').value.replace(/\D/g, '');
                 productsDB[pIndex].link = document.getElementById('up-prod-link').value.trim();
+                productsDB[pIndex].desc = document.getElementById('up-prod-desc').value.trim();
+                productsDB[pIndex].packages = JASA_CATEGORIES.includes(productsDB[pIndex].category) ? readPkgRows() : [];
             }
             customAlert("Produk berhasil diperbarui!");
         } else {
@@ -1323,6 +1383,8 @@ window.NexBoot = function () {
                 name: document.getElementById('up-prod-name').value.trim(),
                 price: document.getElementById('up-prod-price').value.replace(/\D/g, ''),
                 link: document.getElementById('up-prod-link').value.trim(),
+                desc: document.getElementById('up-prod-desc').value.trim(),
+                packages: JASA_CATEGORIES.includes(currentCMSCategory) ? readPkgRows() : [],
                 imgUrl: fileObj ? URL.createObjectURL(fileObj) : '',
                 status: 'Available'
             });
@@ -1335,7 +1397,7 @@ window.NexBoot = function () {
     });
 
     window.deleteProduct = function(id, cat) {
-        customConfirm("Hapus produk ini secara permanen?", () => {
+        askDeletePassword("Hapus <strong>produk</strong> ini secara permanen?", () => {
             productsDB = productsDB.filter(p => p.id !== id);
             renderAdminProductList(cat);
             if(currentOpenMainCategory === cat) renderMainProducts(cat);
@@ -1365,6 +1427,8 @@ window.NexBoot = function () {
         document.getElementById('up-prod-name').value = p.name;
         document.getElementById('up-prod-price').value = String(p.price || '').replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         document.getElementById('up-prod-link').value = p.link;
+        document.getElementById('up-prod-desc').value = p.desc || '';
+        setPkgRows(productPackages(p)); showPkgWrap(p.category);
         validateProductUpload();
     };
 
@@ -1404,15 +1468,141 @@ window.NexBoot = function () {
                 </div>
                 <div class="product-info">
                     <h4>${p.name}</h4>
-                    <p class="price">${p.price ? formatRp(parseInt(String(p.price).replace(/\D/g, ''), 10)) : 'Harga Menyesuaikan'}</p>
-                    <button class="btn-buy ${isSold ? 'sold' : ''}" ${isSold ? 'disabled' : `onclick="buyProduct('${p.id}')"`}>
+                    <p class="price">${productPriceLabel(p)}</p>
+                    <button class="btn-buy ${isSold ? 'sold' : ''}" ${isSold ? 'disabled' : `onclick="event.stopPropagation(); openProductDetail('${p.id}')"`}>
                         ${isSold ? 'SOLD OUT' : 'AKU MAU'}
                     </button>
                 </div>
             `;
+            card.style.cursor = 'pointer';
+            card.addEventListener('click', () => openProductDetail(p.id));
             grid.appendChild(card);
         });
     }
+
+    /* =========================================
+       EDITOR PAKET (ADMIN) + DETAIL PRODUK (USER)
+       ========================================= */
+    function productNum(v) { return v ? (parseInt(String(v).replace(/\D/g, ''), 10) || 0) : 0; }
+    function productPackages(p) { return (Array.isArray(p.packages) ? p.packages : []).filter(k => k && k.name); }
+    function productPriceLabel(p) {
+        const prices = productPackages(p).map(k => k.price || 0).filter(n => n > 0);
+        if (prices.length) return 'Mulai ' + formatRp(Math.min.apply(null, prices));
+        const n = productNum(p.price);
+        return n ? formatRp(n) : 'Harga Menyesuaikan';
+    }
+
+    function showPkgWrap(cat) {
+        const w = document.getElementById('up-prod-pkg-wrap');
+        if (w) w.style.display = JASA_CATEGORIES.includes(cat) ? 'flex' : 'none';
+    }
+    function fmtThousands(v) { return String(v || '').replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.'); }
+    function addPkgRow(d) {
+        d = d || {};
+        const list = document.getElementById('up-prod-pkg-list'); if (!list) return;
+        const row = document.createElement('div'); row.className = 'pkg-row';
+        row.innerHTML = '<input type="text" class="setup-input pkg-name" placeholder="Nama paket (cth: Basic)"><input type="text" inputmode="numeric" class="setup-input pkg-price" placeholder="Harga (Rp)"><textarea class="setup-input pkg-desc" rows="2" placeholder="Isi paket (cth: 2 revisi, 3 hari kerja, file PNG+PDF)"></textarea><button type="button" class="pkg-del" title="Hapus paket">✕</button>';
+        row.querySelector('.pkg-name').value = d.name || '';
+        row.querySelector('.pkg-price').value = d.price ? fmtThousands(d.price) : '';
+        row.querySelector('.pkg-desc').value = d.desc || '';
+        list.appendChild(row);
+    }
+    function setPkgRows(arr) {
+        const list = document.getElementById('up-prod-pkg-list'); if (!list) return;
+        list.innerHTML = '';
+        (arr || []).forEach(addPkgRow);
+    }
+    function readPkgRows() {
+        const out = [];
+        document.querySelectorAll('#up-prod-pkg-list .pkg-row').forEach(r => {
+            const name = r.querySelector('.pkg-name').value.trim();
+            if (!name) return;
+            out.push({ name: name, price: parseInt(r.querySelector('.pkg-price').value.replace(/\D/g, ''), 10) || 0, desc: r.querySelector('.pkg-desc').value.trim() });
+        });
+        return out;
+    }
+    const pkgList = document.getElementById('up-prod-pkg-list');
+    if (pkgList) {
+        pkgList.addEventListener('click', (e) => { const b = e.target.closest && e.target.closest('.pkg-del'); if (b) b.closest('.pkg-row').remove(); });
+        pkgList.addEventListener('input', (e) => { if (e.target.classList.contains('pkg-price')) e.target.value = fmtThousands(e.target.value); });
+    }
+    const btnAddPkg = document.getElementById('btn-add-pkg');
+    if (btnAddPkg) btnAddPkg.addEventListener('click', () => addPkgRow());
+
+    let pdState = null;
+    function pickableWorkers() {
+        return workersDB.filter(w => ['Worker', 'On Progress'].includes(w.status) && w.availability !== 'off' && !(currentUser && currentUser.id === w.id));
+    }
+    function workerOptHtml(w, selected, isStatic) {
+        const av = renderAvatarHtml(w.avatar, escHtml((w.name || '?').trim().charAt(0).toUpperCase()));
+        return `<div class="pd-wopt ${selected ? 'sel' : ''} ${isStatic ? 'static' : ''}" ${isStatic ? '' : `data-wid="${escHtml(w.id)}"`}><div class="avatar-wrapper pd-wav"><div class="avatar-o">${av}</div></div><div class="pd-winfo"><div class="nm">${escHtml(w.name)}</div><div class="idn">${escHtml(w.id)}</div></div>${w.status === 'On Progress' ? '<span class="pd-wtag">Sedang mengerjakan</span>' : ''}</div>`;
+    }
+    function anyWorkerHtml(selected, isStatic) {
+        return `<div class="pd-wopt ${selected ? 'sel' : ''} ${isStatic ? 'static' : ''}" ${isStatic ? '' : 'data-wid=""'}><div class="avatar-wrapper pd-wav"><div class="avatar-o">🎲</div></div><div class="pd-winfo"><div class="nm">Serahkan ke Admin</div><div class="idn">Admin yang menentukan worker terbaik</div></div></div>`;
+    }
+
+    window.openProductDetail = function(id) {
+        const p = productsDB.find(x => x.id === id);
+        if (!p) return;
+        pdState = { id: id, pkg: productPackages(p).length ? 0 : -1, wid: '', open: false };
+        renderProductDetail();
+        document.getElementById('product-detail-modal').classList.add('active');
+    };
+    window.closeProductDetail = function() {
+        document.getElementById('product-detail-modal').classList.remove('active');
+        pdState = null;
+    };
+    function renderProductDetail() {
+        if (!pdState) return;
+        const p = productsDB.find(x => x.id === pdState.id);
+        if (!p) { closeProductDetail(); return; }
+        const box = document.getElementById('pd-body');
+        const isJasa = JASA_CATEGORIES.includes(p.category);
+        const pk = productPackages(p);
+        const chosen = pk[pdState.pkg] || null;
+        const sold = p.status === 'Sold';
+        const unit = chosen ? (chosen.price || 0) : productNum(p.price);
+        const priceTxt = chosen ? (chosen.price ? formatRp(chosen.price) : 'Harga Menyesuaikan') : productPriceLabel(p);
+        let h = '';
+        if (p.imgUrl) h += `<div class="pd-img"><img src="${escHtml(p.imgUrl)}" alt=""></div>`;
+        h += `<div class="pd-cat">${escHtml(p.category)}${isJasa ? ' &bull; JASA' : ''}</div><h3 class="pd-title">${escHtml(p.name)}</h3><div class="pd-price">${priceTxt}</div>`;
+        h += `<div class="pd-section">Deskripsi</div><div class="pd-desc">${p.desc ? escHtml(p.desc).replace(/\n/g, '<br>') : '<span style="color:rgba(255,255,255,0.45);">Belum ada deskripsi untuk produk ini.</span>'}</div>`;
+        if (isJasa && pk.length) {
+            h += '<div class="pd-section">Pilih Paket</div><div class="pd-pkgs">';
+            pk.forEach((k, i) => {
+                h += `<div class="pd-pkg ${i === pdState.pkg ? 'sel' : ''}" data-pkg="${i}"><div class="pd-pkg-top"><b>${escHtml(k.name)}</b><span>${k.price ? formatRp(k.price) : 'Custom'}</span></div>${k.desc ? `<div class="pd-pkg-desc">${escHtml(k.desc).replace(/\n/g, '<br>')}</div>` : ''}</div>`;
+            });
+            h += '</div>';
+        }
+        if (isJasa) {
+            const ws = pickableWorkers();
+            const sel = ws.find(w => w.id === pdState.wid) || null;
+            h += `<div class="pd-section">Pilih Worker</div><div class="pd-wdd ${pdState.open ? 'open' : ''}" id="pd-wdd"><div class="pd-wsel" id="pd-wsel">${sel ? workerOptHtml(sel, false, true) : anyWorkerHtml(false, true)}<span class="pd-caret">▾</span></div><div class="pd-wlist">${anyWorkerHtml(!sel)}${ws.map(w => workerOptHtml(w, sel && sel.id === w.id)).join('')}${ws.length ? '' : '<div class="pd-wempty">Belum ada worker yang tersedia saat ini. Admin akan menentukan worker untuk Anda.</div>'}</div></div>`;
+        }
+        if (unit > 0) h += `<div class="pd-total"><span>Total (sebelum kode unik)</span><b>${formatRp(unit)}</b></div>`;
+        h += `<button type="button" class="btn-futuristic" id="pd-order" ${sold ? 'disabled' : ''} style="width:100%; margin-top:18px;">${sold ? 'SOLD OUT' : (p.link ? 'BUKA LINK PEMBELIAN' : 'LANJUT KE PEMBAYARAN')}</button>`;
+        box.innerHTML = h;
+    }
+    const pdBody = document.getElementById('pd-body');
+    if (pdBody) pdBody.addEventListener('click', (e) => {
+        if (!pdState) return;
+        const t = e.target;
+        const pkg = t.closest('.pd-pkg');
+        if (pkg) { pdState.pkg = parseInt(pkg.dataset.pkg, 10); renderProductDetail(); return; }
+        if (t.closest('#pd-wsel')) { pdState.open = !pdState.open; document.getElementById('pd-wdd').classList.toggle('open', pdState.open); return; }
+        const wo = t.closest('.pd-wopt[data-wid]');
+        if (wo) { pdState.wid = wo.dataset.wid; pdState.open = false; renderProductDetail(); return; }
+        if (t.closest('#pd-order')) {
+            const id = pdState.id;
+            const opt = { pkgIdx: pdState.pkg >= 0 ? pdState.pkg : null, workerId: pdState.wid || '' };
+            closeProductDetail();
+            buyProduct(id, opt);
+        }
+    });
+    const pdClose = document.getElementById('pd-close');
+    if (pdClose) pdClose.addEventListener('click', () => closeProductDetail());
+    const pdModal = document.getElementById('product-detail-modal');
+    if (pdModal) pdModal.addEventListener('click', (e) => { if (e.target === pdModal) closeProductDetail(); });
 
     renderMainVideos();
 
@@ -1554,6 +1744,31 @@ window.NexBoot = function () {
         return null;
     }
 
+    // Progres EXP menuju level berikutnya (Worker: total pendapatan, Customer: total belanja)
+    function levelProgressHtml(isW, value) {
+        value = value || 0;
+        const calc = isW ? calculateLevel : calculateCustomerLevel;
+        const lvl = calc(value);
+        const maxName = isW ? 'UltraXora' : 'NexUltra';
+        const perk = (l) => isW ? 'bonus ' + l.bonus : 'diskon ' + l.discount;
+        if (lvl.name === maxName) {
+            return `<div class="lvl-prog"><div class="lvl-prog-top"><span>${lvl.medal} ${escHtml(lvl.name)}</span><span>LEVEL TERTINGGI</span></div><div class="progress-container"><div class="progress-fill" style="width:100%;"></div></div><div class="lvl-prog-note">Selamat! Anda sudah mencapai level tertinggi (${perk(lvl)}). EXP Anda: <b>${formatRp(value)}</b></div></div>`;
+        }
+        const next = calc(lvl.max + 1);
+        const need = lvl.max + 1 - value;
+        const pct = Math.max(0, Math.min(100, Math.round(value / lvl.max * 100)));
+        return `<div class="lvl-prog"><div class="lvl-prog-top"><span>${lvl.medal} ${escHtml(lvl.name)}</span><span>${next.medal} ${escHtml(next.name)}</span></div><div class="progress-container"><div class="progress-fill" style="width:${pct}%;"></div></div><div class="progress-info"><span>EXP ${formatRp(value)}</span><span>Target ${formatRp(lvl.max + 1)}</span></div><div class="lvl-prog-note">Butuh <b>${formatRp(need)}</b> EXP lagi untuk naik ke <b>${escHtml(next.name)}</b> (${perk(next)})</div></div>`;
+    }
+    function refreshLevelProg() {
+        if (!currentUser) return;
+        const rec = getCurrentRecord(); if (!rec) return;
+        const isW = currentUser.role === 'worker';
+        const el = document.getElementById(isW ? 'dash-w-levelprog' : 'dash-c-levelprog');
+        if (el) el.innerHTML = '<label>Progres Level (EXP)</label>' + levelProgressHtml(isW, isW ? rec.income : rec.spent);
+        const m = document.getElementById('user-profile-modal');
+        if (m && m.classList.contains('active')) renderUserProfile();
+    }
+
     function fillDashboard(role, rec) {
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val === undefined || val === null) ? '' : val; };
         const statusMap = { Waiting: 'Menunggu Tinjauan Admin', Active: 'Aktif', Hold: 'Hold', Worker: 'Worker Aktif', 'On Progress': 'On Progress', Freeze: 'Freeze', Declined: 'Ditolak' };
@@ -1580,6 +1795,7 @@ window.NexBoot = function () {
             const b = document.getElementById('btn-dash-save-worker'); if (b) b.disabled = true;
         }
         currentTempAvatarUrl = "";
+        try { refreshLevelProg(); } catch (err) {}
     }
 
     // Aktifkan tombol simpan saat ada perubahan di form profil
@@ -1680,7 +1896,9 @@ window.NexBoot = function () {
 
         document.getElementById('up-body').innerHTML = `
             <div class="up-stat-grid">${stats}</div>
-            <div class="profile-label" style="margin-bottom:5px;">Aktivitas</div>
+            <div class="profile-label" style="margin-bottom:5px;">Progres Level (EXP)</div>
+            ${levelProgressHtml(isW, isW ? (rec.income || 0) : (rec.spent || 0))}
+            <div class="profile-label" style="margin-bottom:5px; margin-top:14px;">Aktivitas</div>
             <div class="up-activity">${actHtml || '<div style="color:rgba(255,255,255,0.5); font-size:0.85rem; padding:10px 0;">Belum ada aktivitas.</div>'}</div>`;
     }
 
@@ -1792,7 +2010,7 @@ window.NexBoot = function () {
         box.innerHTML = bannersDB.map((b, i) => `<div class="banner-admin-item"><img src="${b.imgUrl}" alt="Banner ${i + 1}"><div class="meta"><span>${b.link ? escHtml(b.link) : 'Tanpa link'}</span><button type="button" class="btn-vid-action btn-vid-del" style="flex:0 0 auto;" onclick="deleteBanner('${b.id}')">HAPUS</button></div></div>`).join('');
     };
     window.deleteBanner = function(id) {
-        customConfirm('Hapus banner iklan ini?', () => { bannersDB = bannersDB.filter(b => b.id !== id); renderAdminBanners(); renderBanners(); });
+        askDeletePassword('Hapus <strong>banner iklan</strong> ini?', () => { bannersDB = bannersDB.filter(b => b.id !== id); renderAdminBanners(); renderBanners(); });
     };
     const btnAddBanner = document.getElementById('btn-add-banner');
     if (btnAddBanner) btnAddBanner.addEventListener('click', () => {
@@ -1877,7 +2095,12 @@ window.NexBoot = function () {
         const w = box.offsetWidth, h = box.offsetHeight;
         box.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
         box.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
-        box.querySelector('button').addEventListener('click', () => { closeChatCtx(); deleteChatMessage(mid); });
+        box.querySelector('button').addEventListener('click', () => {
+            closeChatCtx();
+            const adminView = adminAuthed && $id('admin-chat-view') && $id('admin-chat-view').style.display !== 'none';
+            if (adminView) askDeletePassword('Hapus <strong>pesan</strong> ini?', () => deleteChatMessage(mid));
+            else deleteChatMessage(mid);
+        });
     }
     ['click', 'touchstart', 'scroll'].forEach(ev => document.addEventListener(ev, (e) => {
         const c = document.getElementById('chat-ctx');
@@ -2049,32 +2272,68 @@ window.NexBoot = function () {
     if (chatCloseEl) chatCloseEl.addEventListener('click', () => $id('chat-panel').classList.remove('open'));
 
     // ----- Sisi admin -----
+    let adminChatTab = 'worker';
+    function syncAdminChatTabs() {
+        ['worker', 'customer'].forEach(t => { const b = $id('achat-tab-' + t); if (b) b.classList.toggle('active', adminChatTab === t); });
+    }
+    window.switchAdminChatTab = function(t) {
+        adminChatTab = t === 'customer' ? 'customer' : 'worker';
+        syncAdminChatTabs();
+        renderAdminChatList();
+    };
+    function resetAdminThread() {
+        activeAdminChatUser = null;
+        const th = $id('admin-chat-thread');
+        if (th) th.innerHTML = '<div class="chat-empty">Pilih percakapan di sebelah kiri.</div>';
+        const lay = $id('admin-chat-layout'); if (lay) lay.classList.remove('show-thread');
+    }
     window.renderAdminChatList = function() {
         const list = $id('admin-chat-list');
         if (!list) return;
-        const convs = chatConversations();
-        if (!convs.length) { list.innerHTML = '<div class="chat-empty">Belum ada pesan masuk.</div>'; return; }
-        list.innerHTML = convs.map(cv => {
-            const unread = cv.msgs.filter(m => m.from === 'user' && !m.readByAdmin).length;
-            const rec = chatUserRecord(cv.userId);
-            const av = renderAvatarHtml(rec ? rec.avatar : '', escHtml((cv.name || '?').trim().charAt(0).toUpperCase()));
-            return `<div class="chat-conv ${cv.userId === activeAdminChatUser ? 'active' : ''}" data-uid="${escHtml(cv.userId)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;"><div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(cv.name)}</div><div class="idn">${escHtml(cv.userId)} &bull; ${escHtml(cv.role)}</div><div class="pv">${escHtml(msgPreview(cv.last))}</div></div>${unread ? `<div class="unread">${unread}</div>` : ''}</div>`;
+        const isW = adminChatTab === 'worker';
+        const q = (($id('admin-chat-search') || {}).value || '').trim().toLowerCase();
+
+        // lencana belum dibaca per tab
+        const wIds = new Set(workersDB.map(x => x.id)), cIds = new Set(customersDB.map(x => x.id));
+        let uw = 0, uc = 0;
+        chatsDB.forEach(m => { if (m.from === 'user' && !m.readByAdmin) { if (wIds.has(m.userId)) uw++; else if (cIds.has(m.userId)) uc++; } });
+        [['worker', uw], ['customer', uc]].forEach(([t, n]) => { const bd = $id('achat-badge-' + t); if (bd) { bd.innerText = n; bd.style.display = n > 0 ? 'inline-flex' : 'none'; } });
+        syncAdminChatTabs();
+
+        const byUser = {};
+        chatsDB.forEach(m => { (byUser[m.userId] = byUser[m.userId] || []).push(m); });
+        const people = (isW ? workersDB : customersDB)
+            .filter(r => !['Waiting', 'Declined'].includes(r.status))
+            .filter(r => !q || [r.name, r.id, r.business, r.nickname].some(v => String(v || '').toLowerCase().includes(q)))
+            .map(r => { const msgs = byUser[r.id] || []; return { rec: r, msgs: msgs, last: msgs[msgs.length - 1] || null }; })
+            .sort((a, b) => (b.last ? b.last.ts : 0) - (a.last ? a.last.ts : 0) || String(a.rec.name).localeCompare(String(b.rec.name)));
+
+        if (!people.length) { list.innerHTML = '<div class="chat-empty">' + (q ? 'Tidak ada hasil pencarian.' : (isW ? 'Belum ada worker terdaftar.' : 'Belum ada customer terdaftar.')) + '</div>'; return; }
+        list.innerHTML = people.map(pp => {
+            const r = pp.rec;
+            const unread = pp.msgs.filter(m => m.from === 'user' && !m.readByAdmin).length;
+            const av = renderAvatarHtml(r.avatar, escHtml((r.name || '?').trim().charAt(0).toUpperCase()));
+            const pv = pp.last ? escHtml(msgPreview(pp.last)) : '<i style="opacity:0.7;">Belum ada chat - klik untuk memulai</i>';
+            return `<div class="chat-conv ${r.id === activeAdminChatUser ? 'active' : ''}" data-uid="${escHtml(r.id)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;"><div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(r.name)}</div><div class="idn">${escHtml(r.id)} &bull; ${isW ? 'Worker' : 'Customer'}</div><div class="pv">${pv}</div></div>${unread ? `<div class="unread">${unread}</div>` : ''}</div>`;
         }).join('');
         list.querySelectorAll('.chat-conv').forEach(n => n.addEventListener('click', () => openAdminThread(n.dataset.uid)));
     };
+    const adminChatSearch = $id('admin-chat-search');
+    if (adminChatSearch) adminChatSearch.addEventListener('input', () => renderAdminChatList());
     function renderAdminThreadBody() {
         if (!activeAdminChatUser) return;
         renderChatMessages($id('admin-chat-body'), chatsDB.filter(m => m.userId === activeAdminChatUser), 'admin');
     }
     function openAdminThread(userId) {
         activeAdminChatUser = userId;
+        adminChatTab = customersDB.some(x => x.id === userId) ? 'customer' : 'worker';
         chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
         const info = chatUserInfo(userId);
         const th = $id('admin-chat-thread');
         th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
         th.querySelector('.back-list').addEventListener('click', () => $id('admin-chat-layout').classList.remove('show-thread'));
         th.querySelector('.clear-all').addEventListener('click', () => {
-            customConfirm('Hapus <strong>semua chat</strong> dengan <strong>' + escHtml(info.name) + '</strong> (' + escHtml(userId) + ')?', () => clearChatFor(userId));
+            askDeletePassword('Hapus <strong>semua chat</strong> dengan <strong>' + escHtml(info.name) + '</strong> (' + escHtml(userId) + ')?', () => clearChatFor(userId));
         });
         $id('admin-chat-layout').classList.add('show-thread');
         buildComposer($id('admin-chat-composer'), (payload) => {
@@ -2348,7 +2607,7 @@ window.NexBoot = function () {
             const avatarHtml = renderAvatarHtml(w.avatar, "O");
             const orderTag = (w.status === 'On Progress' && w.orderId) ? `<br><span style="font-size:0.75rem; color:#00f2fe; font-weight:700;">ID Pesanan: ${escHtml(w.orderId)}</span>` : '';
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="openWorkerDoc('${w.id}')">📄</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="openWorkerDoc('${w.id}')">📄</button><button type="button" class="btn-action-sm btn-del" title="Hapus Worker" onclick="deleteWorker('${w.id}')">🗑️</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -2372,8 +2631,57 @@ window.NexBoot = function () {
             const tr = document.createElement('tr'); tr.className = "data-row";
             const avatarHtml = renderAvatarHtml(c.avatar, "C");
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Customer" onclick="deleteCustomer('${c.id}')">🗑️</button></td>`;
             tbodyCust.appendChild(tr);
+        });
+    };
+
+    function afterDataDelete() {
+        try { renderAdminChatList(); updateChatBadges(); renderAdminNotifications(); updatePayoutBadge(); updateOrderBadge(); refreshPocketFields(); } catch (err) {}
+    }
+    window.deleteWorker = function(id) {
+        const w = workersDB.find(x => x.id === id);
+        if (!w) return;
+        askDeletePassword('Hapus worker <strong>' + escHtml(w.name) + '</strong> (' + escHtml(w.id) + ') beserta chat dan data pencairan Pocket miliknya secara permanen?', () => {
+            workersDB = workersDB.filter(x => x.id !== id);
+            chatsDB = chatsDB.filter(m => m.userId !== id);
+            payoutsDB = payoutsDB.filter(x => x.workerId !== id);
+            if (currentUser && currentUser.id === id) clearSession();
+            if (activeAdminChatUser === id) resetAdminThread();
+            renderWorkerTable(); afterDataDelete();
+        });
+    };
+    window.deleteCustomer = function(id) {
+        const c = customersDB.find(x => x.id === id);
+        if (!c) return;
+        askDeletePassword('Hapus customer <strong>' + escHtml(c.name) + '</strong> (' + escHtml(c.id) + ') beserta chat-nya secara permanen?<br><span style="font-size:0.8rem; color:#ffaa00;">Pesanan & catatan keuangan tidak ikut terhapus (hapus terpisah di menu Pesanan / Keuangan).</span>', () => {
+            customersDB = customersDB.filter(x => x.id !== id);
+            chatsDB = chatsDB.filter(m => m.userId !== id);
+            if (currentUser && currentUser.id === id) clearSession();
+            if (activeAdminChatUser === id) resetAdminThread();
+            renderCustomerTable(); afterDataDelete();
+        });
+    };
+    window.deleteOrder = function(id) {
+        const o = ordersDB.find(x => x.id === id);
+        if (!o) return;
+        askDeletePassword('Hapus pesanan <strong>' + escHtml(o.id) + '</strong> (' + escHtml(o.productName) + ') beserta catatan keuangannya?', () => {
+            purgeFinanceRows(financeDB.filter(f => f.orderId === id || f.id === o.financeId || f.id === o.payrollId));
+            ordersDB = ordersDB.filter(x => x.id !== id);
+            if (o.workerId && o.workerId !== '-') refreshWorkerStatus(o.workerId);
+            syncWorkerEarnings();
+            renderOrdersTable();
+            try { renderWorkerTable(); renderFinanceTable(); } catch (err) {}
+            afterDataDelete();
+        });
+    };
+    window.deletePayout = function(id) {
+        const p = payoutsDB.find(x => x.id === id);
+        if (!p) return;
+        askDeletePassword('Hapus data pencairan <strong>' + escHtml(p.id) + '</strong> (' + escHtml(p.workerName || '') + ', ' + formatRp(p.amount || 0) + ')?', () => {
+            payoutsDB = payoutsDB.filter(x => x.id !== id);
+            renderPayoutTable();
+            afterDataDelete();
         });
     };
 
@@ -2485,6 +2793,7 @@ window.NexBoot = function () {
             }
             if (has('workersDB') || has('customersDB')) {
                 updateUserTrigger();
+                refreshLevelProg();
                 if (shown(viewDataWorker)) renderWorkerTable();
                 if (shown(viewDataCustomer)) renderCustomerTable();
             }

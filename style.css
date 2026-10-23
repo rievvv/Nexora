@@ -520,7 +520,7 @@ img, video { max-width: 100%; }
     .notif-actions { justify-content: flex-start; }
     .admin-chat-layout { grid-template-columns: 1fr; }
     .admin-chat-layout .admin-chat-thread { display: none; }
-    .admin-chat-layout.show-thread .admin-chat-list { display: none; }
+    .admin-chat-layout.show-thread .admin-chat-side { display: none; }
     .admin-chat-layout.show-thread .admin-chat-thread { display: flex; }
     .admin-chat-thread .chat-head .back-list { display: inline-block; }
     .chat-panel { right: 0; bottom: 0; width: 100vw; max-width: 100vw; height: 100dvh; max-height: 100dvh; border-radius: 0; border: none; }
@@ -708,4 +708,83 @@ html[data-lang="ar"] .lang-menu li { direction: rtl; }
     .pk-stats { grid-template-columns: 1fr; }
     .pk-hero b { font-size: 1.6rem; }
     .pk-row span { flex-basis: 38%; }
+}
+
+/* =========================================================
+   TAMBAHAN: Sandi hapus, progres level, chat admin 2 menu,
+   detail produk / paket / pilih worker
+   ========================================================= */
+.btn-del { border-color: #ff0055 !important; color: #ff0055 !important; background: transparent; margin-left: 6px; }
+.btn-del:hover { background: #ff0055 !important; color: #fff !important; }
+.dp-input:focus { border-color: #ff0055; box-shadow: 0 0 10px rgba(255,0,85,0.25); }
+
+/* Progres level (EXP) */
+.lvl-prog { background: rgba(0,0,0,0.3); border: 1px solid rgba(0,242,254,0.25); border-radius: 12px; padding: 12px 14px; text-align: left; }
+.lvl-prog-top { display: flex; justify-content: space-between; font-weight: 800; font-size: 0.85rem; color: #fff; margin-bottom: 6px; gap: 10px; }
+.lvl-prog-top span:last-child { color: #00f2fe; }
+.lvl-prog .progress-container { height: 12px; }
+.lvl-prog-note { margin-top: 8px; font-size: 0.8rem; color: rgba(255,255,255,0.75); line-height: 1.5; }
+.lvl-prog-note b { color: #00f2fe; }
+.form-group > label + .lvl-prog { margin-top: 0; }
+
+/* Chat admin: tab Worker / Customer */
+.admin-chat-side { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.admin-chat-tabs { display: flex; gap: 8px; }
+.admin-chat-tabs .admin-tab { flex: 1; padding: 8px 6px; font-size: 0.78rem; display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap; }
+.admin-chat-side .admin-input { margin-bottom: 0; padding: 10px 12px; }
+.tab-badge { min-width: 18px; height: 18px; border-radius: 9px; background: #ff0055; color: #fff; font-size: 0.65rem; font-weight: 800; align-items: center; justify-content: center; padding: 0 5px; }
+
+/* Editor paket (admin) */
+#up-prod-pkg-wrap { display: none; flex-direction: column; gap: 10px; }
+.pkg-row { display: grid; grid-template-columns: 1fr 150px 36px; gap: 8px; margin-bottom: 10px; align-items: start; padding: 10px; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; background: rgba(0,0,0,0.25); }
+.pkg-row .setup-input { margin-bottom: 0; padding: 10px 12px; }
+.pkg-row .pkg-desc { grid-column: 1 / 3; resize: vertical; font-family: inherit; }
+.pkg-del { grid-column: 3; grid-row: 1; height: 40px; border: 1px solid #ff0055; color: #ff0055; background: transparent; border-radius: 8px; cursor: pointer; font-size: 0.9rem; }
+.pkg-del:hover { background: #ff0055; color: #fff; }
+
+/* Modal detail produk */
+.pd-box { max-width: 520px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; text-align: left; }
+.pd-img { width: 100%; aspect-ratio: 1 / 1; max-height: 300px; border-radius: 14px; overflow: hidden; background: #000; margin-bottom: 14px; }
+.pd-img img { width: 100%; height: 100%; object-fit: cover; }
+.pd-cat { font-size: 0.7rem; letter-spacing: 2px; color: #00f2fe; font-weight: 800; text-transform: uppercase; }
+.pd-box .pd-title { margin: 4px 0 6px 0; letter-spacing: 1px; font-size: 1.2rem; text-transform: none; }
+.pd-price { font-size: 1.25rem; font-weight: 800; color: #00f2fe; margin-bottom: 4px; }
+.pd-section { margin: 16px 0 8px 0; font-size: 0.72rem; letter-spacing: 2px; color: rgba(255,255,255,0.55); font-weight: 800; text-transform: uppercase; }
+.pd-desc { color: rgba(255,255,255,0.85); font-size: 0.9rem; line-height: 1.6; word-break: break-word; }
+.pd-pkgs { display: flex; flex-direction: column; gap: 8px; }
+.pd-pkg { border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 12px; cursor: pointer; background: rgba(0,0,0,0.25); transition: all 0.2s; }
+.pd-pkg:hover { border-color: rgba(0,242,254,0.6); }
+.pd-pkg.sel { border-color: #00f2fe; background: rgba(0,242,254,0.1); box-shadow: 0 0 14px rgba(0,242,254,0.2); }
+.pd-pkg-top { display: flex; justify-content: space-between; gap: 10px; color: #fff; }
+.pd-pkg-top span { color: #00f2fe; font-weight: 800; }
+.pd-pkg-desc { margin-top: 6px; font-size: 0.8rem; color: rgba(255,255,255,0.7); line-height: 1.5; }
+
+/* Dropdown worker (foto + nama + ID Nexora) */
+.pd-wdd { position: relative; }
+.pd-wsel { display: flex; align-items: center; justify-content: space-between; gap: 8px; border: 1px solid rgba(0,242,254,0.4); border-radius: 12px; padding: 8px 12px; cursor: pointer; background: rgba(0,0,0,0.35); }
+.pd-wsel .pd-wopt { flex: 1; padding: 0; border: none; background: transparent; }
+.pd-caret { color: #00f2fe; font-size: 1rem; transition: transform 0.2s; }
+.pd-wdd.open .pd-caret { transform: rotate(180deg); }
+.pd-wlist { display: none; margin-top: 6px; border: 1px solid rgba(0,242,254,0.3); border-radius: 12px; background: rgba(11,17,32,0.97); max-height: 240px; overflow-y: auto; }
+.pd-wdd.open .pd-wlist { display: block; }
+.pd-wlist .pd-wopt { padding: 10px 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.pd-wlist .pd-wopt:hover, .pd-wlist .pd-wopt.sel { background: rgba(0,242,254,0.12); }
+.pd-wopt { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pd-wav { width: 40px !important; height: 40px !important; flex: 0 0 40px; }
+.pd-wav .avatar-o { font-size: 1rem; }
+.pd-winfo { min-width: 0; flex: 1; }
+.pd-winfo .nm { font-weight: 800; font-size: 0.9rem; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-winfo .idn { font-size: 0.7rem; color: #00f2fe; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pd-wtag { font-size: 0.62rem; color: #ffaa00; border: 1px solid rgba(255,170,0,0.5); border-radius: 8px; padding: 2px 6px; white-space: nowrap; }
+.pd-wempty { padding: 12px; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+.pd-total { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.2); color: rgba(255,255,255,0.7); font-size: 0.85rem; }
+.pd-total b { color: #00f2fe; font-size: 1.15rem; }
+#pd-order:disabled { opacity: 0.5; cursor: not-allowed; border-color: #ff0055; color: #ff0055; }
+
+@media (max-width: 600px) {
+    .pkg-row { grid-template-columns: 1fr 36px; }
+    .pkg-row .pkg-price { grid-column: 1; }
+    .pkg-row .pkg-desc { grid-column: 1 / 3; }
+    .pkg-del { grid-column: 2; grid-row: 1; }
+    .admin-chat-tabs .admin-tab { font-size: 0.72rem; padding: 8px 4px; }
 }
