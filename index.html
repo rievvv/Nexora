@@ -16,6 +16,34 @@
     </div>
 
     <!-- MODAL DETAIL PESANAN (ADMIN) -->
+    <!-- MODAL POCKET WORKER -->
+    <div class="modal-overlay" id="worker-pocket-modal">
+        <div class="modal-box profile-modal-box pk-box">
+            <h3 class="pk-title">💰 POCKET WORKER</h3>
+            <div id="pk-hero" class="pk-hero"></div>
+            <div id="pk-stats" class="pk-stats"></div>
+            <div class="pk-form">
+                <label class="pk-label" for="pk-amount">NOMINAL PENCAIRAN</label>
+                <div class="pk-amt"><span>Rp</span><input type="text" id="pk-amount" inputmode="numeric" autocomplete="off" placeholder="0"></div>
+                <div class="pk-quick"><button type="button" id="pk-half">50%</button><button type="button" id="pk-all">Cairkan Semua</button></div>
+                <div id="pk-dest" class="pk-dest"></div>
+                <button type="button" id="pk-submit" class="btn-futuristic pk-submit">CAIRKAN DANA</button>
+            </div>
+            <h4 class="pk-sub">RIWAYAT PENCAIRAN</h4>
+            <div id="pk-history" class="pk-history"></div>
+            <div class="close-modal" onclick="closePocket()" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup</div>
+        </div>
+    </div>
+
+    <!-- MODAL DETAIL PENCAIRAN (ADMIN) -->
+    <div class="modal-overlay" id="payout-detail-modal">
+        <div class="modal-box profile-modal-box pk-box" style="max-width: 540px !important;">
+            <h3 style="color: #34A853; margin-bottom: 15px; text-align: center;">DETAIL PENCAIRAN DANA</h3>
+            <div id="payout-detail-content"></div>
+            <div class="close-modal" onclick="closePayoutDetail()" style="text-align: center; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 15px;">Tutup</div>
+        </div>
+    </div>
+
     <div class="modal-overlay" id="order-detail-modal">
         <div class="modal-box profile-modal-box" style="max-width: 520px !important;">
             <h3 style="color: #00f2fe; margin-bottom: 15px; text-align: center;">DETAIL PESANAN</h3>
@@ -559,6 +587,7 @@
                         <div class="admin-card" id="btn-menu-customer"><div class="icon">👥</div><h3>Data Customer</h3><p>Database Pelanggan & Status Proyek.</p></div>
                         <div class="admin-card" id="btn-menu-content"><div class="icon">🎬</div><h3>Management Konten</h3><p>Upload & Pin Video Katalog.</p></div>
                         <div class="admin-card" id="btn-menu-finance"><div class="icon">💰</div><h3>Laporan Keuangan</h3><p>Pemasukan, pengeluaran, bagi hasil & total income.</p></div>
+                        <div class="admin-card" id="btn-menu-payout"><div class="icon">💸</div><h3>Pencairan Dana</h3><p>Proses permintaan pencairan Pocket Worker & upload bukti transfer.</p><div id="payout-badge-notif" style="position: absolute; top: 15px; right: 15px; background: #ff0055; color: #fff; border-radius: 50%; width: 25px; height: 25px; display: none; justify-content: center; align-items: center; font-size: 0.75rem; font-weight: bold;">0</div></div>
                         <div class="admin-card" id="btn-menu-chat"><div class="icon">💬</div><h3>Chat User</h3><p>Balas pesan dari Customer & Worker.</p><div id="chat-badge-notif" style="position: absolute; top: 15px; right: 15px; background: #ff0055; color: #fff; border-radius: 50%; width: 25px; height: 25px; display: none; justify-content: center; align-items: center; font-size: 0.75rem; font-weight: bold;">0</div></div>
                     </div>
                 </div>
@@ -576,6 +605,22 @@
                         <table class="data-table">
                             <thead><tr><th>ID PESANAN</th><th>NAMA PRODUK</th><th>NOMINAL TRANSFER</th><th>TANGGAL MULAI &amp; DEADLINE</th><th>STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
                             <tbody id="orders-table-tbody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAMPILAN PENCAIRAN DANA WORKER (ADMIN) -->
+            <div id="admin-payout-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">PENCAIRAN DANA WORKER</h2>
+                        <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-payout-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+                    <div class="data-table-wrapper">
+                        <table class="data-table">
+                            <thead><tr><th>ID PENCAIRAN</th><th>WORKER</th><th>NOMINAL</th><th>REKENING TUJUAN</th><th>DIAJUKAN</th><th>STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
+                            <tbody id="payout-table-tbody"></tbody>
                         </table>
                     </div>
                 </div>
@@ -823,7 +868,7 @@
                     <div class="form-group"><label>ID Nexora</label><input type="text" id="dash-w-id" class="setup-input" placeholder="" disabled ></div>
                     <div class="form-group"><label>Nomor Induk Kependudukan (NIK)</label><input type="text" id="dash-w-nik" class="setup-input" placeholder="" disabled ></div>
                     <div class="form-group"><label>Level Worker</label><input type="text" id="dash-w-level" class="setup-input" placeholder="" disabled ></div>
-                    <div class="form-group"><label>Saldo Pendapatan</label><input type="text" id="dash-w-balance" class="setup-input" placeholder="" disabled ></div>
+                    <div class="form-group"><label>Saldo Pendapatan</label><input type="text" id="dash-w-balance" class="setup-input" placeholder="" disabled ></div><div class="form-group"><label>Saldo Tersisa (Pocket)</label><input type="text" id="dash-w-remaining" class="setup-input" placeholder="" disabled style="color:#00f2fe; font-weight:800;"></div><div class="form-group full-width"><button type="button" class="btn-futuristic pk-open" onclick="openPocket()">💰 BUKA POCKET &amp; CAIRKAN SALDO</button></div>
                     <div class="form-group full-width"><label>Status Akun</label><input type="text" id="dash-w-status" class="setup-input" placeholder="" disabled style="color:#ffaa00; font-weight:bold;"></div>
                     <div class="dash-section full-width">Data Diri</div>
                     <div class="form-group"><label>Nama Lengkap (Sesuai KTP) <span class="req">*</span></label><input type="text" id="dash-w-name" class="setup-input" placeholder="Nama lengkap" ></div>

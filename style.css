@@ -652,3 +652,60 @@ html[data-lang="ar"] .lang-menu li { direction: rtl; }
     .role-text { flex: 1; min-width: 0; }
     .role-page .page-title { display: block; }
 }
+
+/* =========================================================
+   POCKET WORKER & PENCAIRAN DANA
+   ========================================================= */
+.pk-open { width: 100%; border-color: #34A853 !important; color: #34A853 !important; }
+.pk-box { max-height: 92vh; max-height: 92dvh; overflow-y: auto; -webkit-overflow-scrolling: touch; max-width: 600px !important; }
+.pk-title { color: #34A853; text-align: center; margin-bottom: 16px; letter-spacing: 2px; }
+.pk-hero { text-align: center; padding: 20px 14px; border-radius: 18px; background: linear-gradient(135deg, rgba(52,168,83,0.18), rgba(0,242,254,0.08)); border: 1px solid rgba(52,168,83,0.45); margin-bottom: 12px; }
+.pk-hero span { display: block; font-size: 0.72rem; letter-spacing: 2px; color: rgba(255,255,255,0.6); font-weight: 700; }
+.pk-hero b { display: block; font-size: 2rem; color: #fff; margin: 6px 0 2px; text-shadow: 0 0 18px rgba(52,168,83,0.5); }
+.pk-hero small { color: rgba(255,255,255,0.55); font-size: 0.75rem; }
+.pk-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.pk-stat { background: rgba(0,0,0,0.35); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 8px; text-align: center; }
+.pk-stat span { display: block; font-size: 0.62rem; color: rgba(255,255,255,0.5); letter-spacing: 1px; text-transform: uppercase; font-weight: 700; }
+.pk-stat b { display: block; font-size: 0.85rem; margin-top: 4px; color: #00f2fe; word-break: break-word; }
+.pk-form { background: rgba(255,255,255,0.03); border: 1px solid rgba(0,242,254,0.25); border-radius: 16px; padding: 14px; margin-bottom: 18px; }
+.pk-label { display: block; font-size: 0.72rem; color: rgba(255,255,255,0.6); letter-spacing: 1px; margin-bottom: 8px; font-weight: 700; }
+.pk-amt { display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.45); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; padding: 0 14px; }
+.pk-amt:focus-within { border-color: #34A853; box-shadow: 0 0 12px rgba(52,168,83,0.3); }
+.pk-amt span { color: rgba(255,255,255,0.6); font-weight: 700; }
+.pk-amt input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: #fff; font-size: 1.3rem; font-weight: 800; padding: 12px 0; font-family: inherit; }
+.pk-quick { display: flex; gap: 8px; margin: 10px 0; }
+.pk-quick button { flex: 1; background: rgba(52,168,83,0.12); border: 1px solid rgba(52,168,83,0.5); color: #34A853; border-radius: 10px; padding: 8px; font-family: inherit; font-weight: 700; cursor: pointer; font-size: 0.8rem; }
+.pk-quick button:hover { background: rgba(52,168,83,0.25); }
+.pk-dest { background: rgba(0,0,0,0.4); border: 1px dashed rgba(0,242,254,0.4); border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; }
+.pk-dest-l { font-size: 0.65rem; color: rgba(255,255,255,0.5); letter-spacing: 1px; font-weight: 700; }
+.pk-dest-v { font-weight: 800; color: #00f2fe; margin-top: 4px; word-break: break-all; }
+.pk-dest-s { font-size: 0.8rem; color: rgba(255,255,255,0.7); }
+.pk-dest-warn { color: #ffaa00; font-size: 0.82rem; line-height: 1.5; }
+.pk-submit { width: 100%; border-color: #34A853 !important; color: #34A853 !important; }
+.pk-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+.pk-sub { color: rgba(255,255,255,0.75); letter-spacing: 2px; font-size: 0.85rem; margin: 6px 0 10px; }
+.pk-history { display: flex; flex-direction: column; gap: 12px; }
+.pk-empty { text-align: center; color: rgba(255,255,255,0.45); padding: 18px; font-size: 0.85rem; border: 1px dashed rgba(255,255,255,0.15); border-radius: 12px; }
+.pk-card { border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; padding: 14px; background: rgba(0,0,0,0.3); }
+.pk-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; margin-bottom: 10px; }
+.pk-id { font-size: 0.72rem; color: rgba(255,255,255,0.5); letter-spacing: 1px; font-weight: 700; }
+.pk-amount-big { font-size: 1.25rem; font-weight: 800; color: #fff; }
+.pk-chip { padding: 4px 12px; border: 1px solid; border-radius: 14px; font-size: 0.72rem; font-weight: 800; white-space: nowrap; }
+.pk-note { font-size: 0.8rem; padding: 8px 12px; border-radius: 10px; margin-bottom: 10px; line-height: 1.5; }
+.pk-note.wait { background: rgba(255,170,0,0.12); color: #ffaa00; border: 1px solid rgba(255,170,0,0.4); }
+.pk-note.proc { background: rgba(0,242,254,0.1); color: #00f2fe; border: 1px solid rgba(0,242,254,0.4); }
+.pk-note.ok { background: rgba(52,168,83,0.12); color: #34A853; border: 1px solid rgba(52,168,83,0.45); }
+.pk-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding: 7px 0; border-bottom: 1px dashed rgba(255,255,255,0.08); font-size: 0.8rem; }
+.pk-row span { color: rgba(255,255,255,0.55); flex: 0 0 42%; }
+.pk-row b { text-align: right; font-weight: 700; word-break: break-word; }
+.pk-row small { color: rgba(255,255,255,0.6); font-weight: 500; }
+.pk-proof { display: block; text-align: center; margin-top: 12px; padding: 10px; border-radius: 12px; border: 1px solid #34A853; color: #34A853; text-decoration: none; font-weight: 700; font-size: 0.85rem; }
+.pk-proof:hover { background: rgba(52,168,83,0.15); }
+.mt-copy { background: rgba(0,242,254,0.12); border: 1px solid rgba(0,242,254,0.4); color: #00f2fe; border-radius: 8px; padding: 2px 8px; font-size: 0.7rem; cursor: pointer; font-family: inherit; margin-left: 6px; }
+.notif-card.payout-notif { border-color: #34A853; box-shadow: 0 5px 15px rgba(52,168,83,0.25); }
+.notif-card .badge.payout { background: rgba(52,168,83,0.2); color: #34A853; }
+@media (max-width: 520px) {
+    .pk-stats { grid-template-columns: 1fr; }
+    .pk-hero b { font-size: 1.6rem; }
+    .pk-row span { flex-basis: 38%; }
+}

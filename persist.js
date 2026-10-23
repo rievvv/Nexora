@@ -1,4 +1,4 @@
-/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB */
+/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB */
 /* =========================================================
    NEXORA - PENYIMPANAN PERMANEN + SINKRONISASI CLOUD
    - Semua database (user, produk, video, banner, pesanan, keuangan, chat)
@@ -15,7 +15,7 @@
 
     var DB_NAME = 'nexora-storage', DB_VER = 1;
     var STATE_KEY = 'state';
-    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB'];
+    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB', 'payoutsDB'];
 
     var CFG = window.NEX_CLOUD || {};
     var CLOUD = !!(CFG.url && CFG.anonKey && /^https?:\/\//.test(CFG.url));
@@ -36,7 +36,8 @@
         return {
             workersDB: workersDB, customersDB: customersDB, videosDB: videosDB,
             productsDB: productsDB, ordersDB: ordersDB, financeDB: financeDB,
-            bannersDB: bannersDB, chatsDB: chatsDB
+            bannersDB: bannersDB, chatsDB: chatsDB,
+            payoutsDB: (typeof payoutsDB !== 'undefined') ? payoutsDB : []
         };
     }
     function setState(o) {
@@ -48,6 +49,7 @@
         if (Array.isArray(o.financeDB)) financeDB = o.financeDB;
         if (Array.isArray(o.bannersDB)) bannersDB = o.bannersDB;
         if (Array.isArray(o.chatsDB)) chatsDB = o.chatsDB;
+        if (Array.isArray(o.payoutsDB) && typeof payoutsDB !== 'undefined') payoutsDB = o.payoutsDB;
     }
     function liveSig() { try { return JSON.stringify(getState()); } catch (e) { return String(Math.random()); } }
 
@@ -108,6 +110,7 @@
                 arr.push(r);
             });
             if (c === 'chatsDB') arr.sort(function (x, y) { return (x.ts || 0) - (y.ts || 0); });
+            if (c === 'payoutsDB') arr.sort(function (x, y) { return (y.requestedAt || 0) - (x.requestedAt || 0); });
             if (c === 'ordersDB') arr.sort(function (x, y) { return (y.createdAt || 0) - (x.createdAt || 0); });
             out[c] = arr;
         });

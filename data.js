@@ -1,4 +1,4 @@
-/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, calculateLevel, calculateCustomerLevel, formatRp */
+/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, calculateLevel, calculateCustomerLevel, formatRp */
 
 // =========================================
 // DATABASE & LOGIKA LEVELING NEXORA
@@ -50,3 +50,6 @@ let bannersDB = [];
 
 // DATABASE CHAT USER <-> ADMIN
 let chatsDB = [];
+
+// DATABASE PENCAIRAN DANA WORKER (Pocket): diajukan Worker, diproses Admin
+let payoutsDB = [];

@@ -61,6 +61,7 @@ window.NexBoot = function () {
     let navIdx = 0;
     let restoringNav = false;
     let adminAuthed = false;
+    let adminId = '';
     let navRetry = null;
 
     function pushNav(extra) {
@@ -70,7 +71,7 @@ window.NexBoot = function () {
     }
 
     function showAdminSub(key) {
-        const views = { orders: viewOrders, worker: viewDataWorker, customer: viewDataCustomer, content: viewManageContent, finance: viewFinance, chat: viewChat };
+        const views = { orders: viewOrders, worker: viewDataWorker, customer: viewDataCustomer, content: viewManageContent, finance: viewFinance, chat: viewChat, payout: viewPayout };
         Object.keys(views).forEach(k => { views[k].style.display = 'none'; });
         viewCarousel.style.display = 'none';
         if (!key || !views[key]) { viewCarousel.style.display = 'flex'; return; }
@@ -82,6 +83,7 @@ window.NexBoot = function () {
             if (key === 'content') switchCMSTab('video');
             if (key === 'finance') renderFinanceTable();
             if (key === 'chat') renderAdminChatList();
+            if (key === 'payout') renderPayoutTable();
         } catch (err) {}
     }
 
@@ -199,6 +201,7 @@ window.NexBoot = function () {
 
         if (isValidAdmin) {
             adminAuthed = true;
+            adminId = (user === 'admin') ? 'NEX-ADMIN' : user;
             document.getElementById('login-error-admin').style.display = 'none';
             document.getElementById('admin-modal').classList.remove('active'); 
             
@@ -206,7 +209,7 @@ window.NexBoot = function () {
             document.getElementById('admin-orders-view').style.display = 'none';
             document.getElementById('admin-data-worker-view').style.display = 'none';
             document.getElementById('admin-data-customer-view').style.display = 'none';
-            document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none';
+            document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none'; document.getElementById('admin-payout-view').style.display = 'none';
 
             try { renderAdminNotifications(); updateOrderBadge(); } catch(err) {}
             
@@ -228,7 +231,7 @@ window.NexBoot = function () {
         document.getElementById('admin-orders-view').style.display = 'none';
         document.getElementById('admin-data-worker-view').style.display = 'none';
         document.getElementById('admin-data-customer-view').style.display = 'none';
-        document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none';
+        document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none'; document.getElementById('admin-payout-view').style.display = 'none';
         navigateTo('page-1', 'backward'); 
     });
 
@@ -240,9 +243,10 @@ window.NexBoot = function () {
     const viewManageContent = document.getElementById('admin-manage-content-view');
     const viewFinance = document.getElementById('admin-finance-view');
     const viewChat = document.getElementById('admin-chat-view');
+    const viewPayout = document.getElementById('admin-payout-view');
 
     document.addEventListener('click', function(e) {
-        const mm = e.target && e.target.id && /^btn-menu-(orders|worker|customer|content|finance|chat)$/.exec(e.target.id);
+        const mm = e.target && e.target.id && /^btn-menu-(orders|worker|customer|content|finance|chat|payout)$/.exec(e.target.id);
         if (mm) pushNav({ page: 'page-3', adm: mm[1], cat: '' });
         if (e.target && e.target.id === 'btn-menu-orders') { 
             viewCarousel.style.display = 'none'; 
@@ -255,6 +259,7 @@ window.NexBoot = function () {
         if (e.target && e.target.id === 'btn-menu-content') { viewCarousel.style.display = 'none'; viewManageContent.style.display = 'flex'; switchCMSTab('video'); }
         if (e.target && e.target.id === 'btn-menu-finance') { viewCarousel.style.display = 'none'; viewFinance.style.display = 'flex'; renderFinanceTable(); }
         if (e.target && e.target.id === 'btn-menu-chat') { viewCarousel.style.display = 'none'; viewChat.style.display = 'flex'; renderAdminChatList(); }
+        if (e.target && e.target.id === 'btn-menu-payout') { viewCarousel.style.display = 'none'; viewPayout.style.display = 'flex'; renderPayoutTable(); }
     });
 
     /* =========================================
@@ -756,6 +761,277 @@ window.NexBoot = function () {
         document.getElementById('fin-manual-modal').classList.remove('active');
         renderFinanceTable();
     });
+
+    /* =========================================
+       POCKET WORKER & PENCAIRAN DANA
+       ========================================= */
+    const byId = (x) => document.getElementById(x);
+    const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    const fmtDT = (ts) => { if (!ts) return '-'; const d = new Date(ts); return `${pad2(d.getDate())} ${BLN[d.getMonth()]} ${d.getFullYear()}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
+    const PO_COLOR = { 'Pending': '#ffaa00', 'On Process': '#00f2fe', 'Success': '#34A853' };
+    const PO_LABEL = { 'Pending': 'Menunggu Admin', 'On Process': 'On Process', 'Success': 'Success' };
+    const PO_PROC_NOTE = 'Dana akan cair dalam 1x24 jam';
+
+    // "BCA 12345678 A/N Nama" -> { bank, no, name }
+    function parseRek(s) { const m = String(s || '').match(/^(.*?)\s+(\d+)\s+A\/N\s+(.*)$/i); return m ? { bank: m[1].trim(), no: m[2], name: m[3].trim() } : null; }
+    // Saldo Pendapatan = w.balance (total yang masuk). Saldo Tersisa = Saldo Pendapatan - semua pencairan yang sudah diajukan.
+    function pocketReserved(w) { return payoutsDB.filter(p => p.workerId === w.id).reduce((a, p) => a + (p.amount || 0), 0); }
+    function pocketRemaining(w) { return Math.max(0, (w.balance || 0) - pocketReserved(w)); }
+    function pocketWorker() { return (currentUser && currentUser.role === 'worker') ? getCurrentRecord() : null; }
+    function newPayoutId() { let id; do { id = 'WD-' + Math.floor(100000 + Math.random() * 900000); } while (payoutsDB.some(p => p.id === id)); return id; }
+    const amtDigits = () => parseInt(String(byId('pk-amount').value).replace(/\D/g, ''), 10) || 0;
+    const fmtDots = (n) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+
+    /* ----- Sisi Worker ----- */
+    function poRowW(l, v) { return `<div class="pk-row"><span>${l}</span><b>${v}</b></div>`; }
+    function poCardWorker(p) {
+        const col = PO_COLOR[p.status] || '#fff';
+        let note = '';
+        if (p.status === 'Pending') note = '<div class="pk-note wait">⏳ Permintaan terkirim. Menunggu Admin memproses.</div>';
+        if (p.status === 'On Process') note = `<div class="pk-note proc">⏱️ Pencairan sedang diproses. ${PO_PROC_NOTE}.</div>`;
+        if (p.status === 'Success') note = '<div class="pk-note ok">✅ Dana telah ditransfer ke rekening Anda.</div>';
+        const proof = p.proofUrl ? `<a class="pk-proof" href="${escHtml(p.proofUrl)}" target="_blank" rel="noopener">🧾 Lihat Bukti Transfer</a>` : '';
+        return `<div class="pk-card" style="border-color:${col}55;">
+            <div class="pk-card-top"><div><div class="pk-id">${escHtml(p.id)}</div><div class="pk-amount-big">${formatRp(p.amount)}</div></div><span class="pk-chip" style="color:${col}; border-color:${col};">${PO_LABEL[p.status] || escHtml(p.status)}</span></div>
+            ${note}
+            ${poRowW('Rekening Tujuan', escHtml(p.bank) + ' &bull; ' + escHtml(p.accNo) + '<br><small>a.n. ' + escHtml(p.accName) + '</small>')}
+            ${poRowW('Waktu Pengajuan', fmtDT(p.requestedAt))}
+            ${poRowW('Waktu On Process', fmtDT(p.processAt))}
+            ${poRowW('Waktu Success', fmtDT(p.successAt))}
+            ${p.adminId ? poRowW('Diproses oleh Admin', escHtml(p.adminId)) : ''}
+            ${poRowW('Saldo Tersisa Setelah Pengajuan', formatRp(p.balanceAfter || 0))}
+            ${proof}
+        </div>`;
+    }
+
+    function renderPocket() {
+        const w = pocketWorker();
+        if (!w || !byId('pk-hero')) return;
+        const mine = payoutsDB.filter(p => p.workerId === w.id).sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0));
+        const remaining = pocketRemaining(w);
+        const inProc = mine.filter(p => p.status !== 'Success').reduce((a, p) => a + (p.amount || 0), 0);
+        const done = mine.filter(p => p.status === 'Success').reduce((a, p) => a + (p.amount || 0), 0);
+        byId('pk-hero').innerHTML = `<span>SALDO TERSISA</span><b>${formatRp(remaining)}</b><small>Dapat dicairkan sebagian atau seluruhnya</small>`;
+        byId('pk-stats').innerHTML = `<div class="pk-stat"><span>Saldo Pendapatan</span><b>${formatRp(w.balance || 0)}</b></div><div class="pk-stat"><span>Dalam Proses</span><b style="color:#ffaa00;">${formatRp(inProc)}</b></div><div class="pk-stat"><span>Sudah Cair</span><b style="color:#34A853;">${formatRp(done)}</b></div>`;
+        const rk = parseRek(w.rekening);
+        byId('pk-dest').innerHTML = rk
+            ? `<div class="pk-dest-l">REKENING TUJUAN (sesuai data profil Anda)</div><div class="pk-dest-v">${escHtml(rk.bank)} &bull; ${escHtml(rk.no)}</div><div class="pk-dest-s">a.n. ${escHtml(rk.name)}</div>`
+            : '<div class="pk-dest-warn">⚠️ Rekening pencairan belum lengkap. Isi Bank, Nomor Rekening & Atas Nama pada profil Anda terlebih dahulu.</div>';
+        byId('pk-submit').disabled = !rk || remaining <= 0;
+        byId('pk-history').innerHTML = mine.length ? mine.map(poCardWorker).join('') : '<div class="pk-empty">Belum ada riwayat pencairan.</div>';
+    }
+
+    window.openPocket = function() {
+        if (!pocketWorker()) { customAlert('Silakan login sebagai Worker terlebih dahulu.'); return; }
+        byId('pk-amount').value = '';
+        renderPocket();
+        byId('worker-pocket-modal').classList.add('active');
+    };
+    window.closePocket = function() { byId('worker-pocket-modal').classList.remove('active'); };
+
+    function refreshPocketFields() {
+        const w = pocketWorker();
+        if (!w) return;
+        const a = byId('dash-w-balance'), b = byId('dash-w-remaining');
+        if (a) a.value = formatRp(w.balance || 0);
+        if (b) b.value = formatRp(pocketRemaining(w));
+        if (byId('worker-pocket-modal') && byId('worker-pocket-modal').classList.contains('active')) renderPocket();
+    }
+
+    function requestPayout() {
+        const w = pocketWorker();
+        if (!w) return;
+        const rk = parseRek(w.rekening);
+        if (!rk) { customAlert('Rekening pencairan belum lengkap. Lengkapi Bank, Nomor Rekening, dan Atas Nama di profil Anda terlebih dahulu.'); return; }
+        const amt = amtDigits(), remaining = pocketRemaining(w);
+        if (amt <= 0) { customAlert('Masukkan nominal pencairan terlebih dahulu.'); return; }
+        if (amt > remaining) { customAlert('Nominal melebihi Saldo Tersisa Anda (<strong>' + formatRp(remaining) + '</strong>).'); return; }
+        customConfirm(
+            `<div style="text-align:left;"><div style="font-size:0.9rem; margin-bottom:10px;">Dana sebesar <strong style="color:#00f2fe;">${formatRp(amt)}</strong> akan ditransfer ke rekening berikut:</div>` +
+            `<div style="background:rgba(0,0,0,0.4); border:1px solid rgba(0,242,254,0.3); border-radius:12px; padding:12px 14px; line-height:1.6;"><div style="font-size:0.7rem; color:rgba(255,255,255,0.5); letter-spacing:1px;">BANK</div><strong>${escHtml(rk.bank)}</strong><div style="font-size:0.7rem; color:rgba(255,255,255,0.5); letter-spacing:1px; margin-top:6px;">NOMOR REKENING</div><strong>${escHtml(rk.no)}</strong><div style="font-size:0.7rem; color:rgba(255,255,255,0.5); letter-spacing:1px; margin-top:6px;">ATAS NAMA</div><strong>${escHtml(rk.name)}</strong></div>` +
+            `<div style="font-size:0.8rem; color:#ffaa00; margin-top:10px;">Pastikan data rekening sudah benar. Lanjutkan pencairan?</div></div>`,
+            () => {
+                const w2 = pocketWorker();
+                if (!w2) return;
+                const rem2 = pocketRemaining(w2);
+                if (amt > rem2) { customAlert('Saldo Tersisa berubah. Nominal melebihi saldo (<strong>' + formatRp(rem2) + '</strong>).'); renderPocket(); return; }
+                const rk2 = parseRek(w2.rekening) || rk;
+                payoutsDB.unshift({
+                    id: newPayoutId(), workerId: w2.id, workerName: w2.name, amount: amt,
+                    bank: rk2.bank, accNo: rk2.no, accName: rk2.name,
+                    status: 'Pending', requestedAt: Date.now(), processAt: null, successAt: null,
+                    adminId: '', proofUrl: '', proofName: '', proofMime: '', balanceAfter: rem2 - amt
+                });
+                byId('pk-amount').value = '';
+                renderPocket(); refreshPocketFields(); updatePayoutBadge();
+                try { if (adminAuthed) renderAdminNotifications(); } catch (err) {}
+                customAlert('Permintaan pencairan <strong>' + formatRp(amt) + '</strong> terkirim ke Admin. Pantau statusnya di riwayat Pocket.');
+            }
+        );
+    }
+
+    (function bindPocket() {
+        const amt = byId('pk-amount');
+        if (!amt) return;
+        amt.addEventListener('input', () => { const n = parseInt(amt.value.replace(/\D/g, ''), 10) || 0; amt.value = n ? fmtDots(n) : ''; });
+        byId('pk-all').addEventListener('click', () => { const w = pocketWorker(); if (w) amt.value = fmtDots(pocketRemaining(w)); });
+        byId('pk-half').addEventListener('click', () => { const w = pocketWorker(); if (w) amt.value = fmtDots(Math.floor(pocketRemaining(w) / 2)); });
+        byId('pk-submit').addEventListener('click', requestPayout);
+    })();
+
+    // Pemberitahuan ke Worker saat status pencairan berubah (mis. dari perangkat Admin)
+    let poSeen = {};
+    function snapPayoutStatus() { poSeen = {}; payoutsDB.forEach(p => { poSeen[p.id] = p.status; }); }
+    function notifyPayoutChanges() {
+        const w = pocketWorker();
+        payoutsDB.forEach(p => {
+            const prev = poSeen[p.id]; poSeen[p.id] = p.status;
+            if (!w || p.workerId !== w.id || prev === undefined || prev === p.status) return;
+            if (p.status === 'On Process') customAlert('Pencairan <strong>' + escHtml(p.id) + '</strong> (' + formatRp(p.amount) + ') sedang diproses. <strong>' + PO_PROC_NOTE + '.</strong>');
+            if (p.status === 'Success') customAlert('Pencairan <strong>' + escHtml(p.id) + '</strong> (' + formatRp(p.amount) + ') <strong>berhasil</strong> ditransfer. Bukti transfer tersedia di riwayat Pocket.');
+        });
+    }
+
+    /* ----- Sisi Admin ----- */
+    let openPayoutId = null;
+    window.updatePayoutBadge = function() {
+        const b = byId('payout-badge-notif'); if (!b) return;
+        const n = payoutsDB.filter(p => p.status === 'Pending').length;
+        b.innerText = n; b.style.display = n > 0 ? 'flex' : 'none';
+    };
+
+    window.renderPayoutTable = function() {
+        const tb = byId('payout-table-tbody'); if (!tb) return;
+        tb.innerHTML = '';
+        if (!payoutsDB.length) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Belum ada permintaan pencairan.</td></tr>'; return; }
+        const rank = { 'Pending': 0, 'On Process': 1, 'Success': 2 };
+        payoutsDB.slice().sort((a, b) => (rank[a.status] - rank[b.status]) || ((b.requestedAt || 0) - (a.requestedAt || 0))).forEach(p => {
+            const col = PO_COLOR[p.status] || '#fff';
+            const tr = document.createElement('tr'); tr.className = 'data-row';
+            tr.addEventListener('click', () => openPayoutDetail(p.id));
+            tr.innerHTML = `
+                <td data-label="ID PENCAIRAN" style="font-weight:700; color:#00f2fe;">${escHtml(p.id)}</td>
+                <td data-label="WORKER" style="font-weight:700;">${escHtml(p.workerName)}<br><span style="font-size:0.75rem; color:#00f2fe;">${escHtml(p.workerId)}</span></td>
+                <td data-label="NOMINAL" style="color:#34A853; font-weight:800;">${formatRp(p.amount)}</td>
+                <td data-label="REKENING TUJUAN">${escHtml(p.bank)} ${escHtml(p.accNo)}<br><span style="font-size:0.75rem; color:rgba(255,255,255,0.6);">a.n. ${escHtml(p.accName)}</span></td>
+                <td data-label="DIAJUKAN" style="font-size:0.85rem;">${fmtDT(p.requestedAt)}</td>
+                <td data-label="STATUS"><span style="color:${col}; font-weight:bold;">${PO_LABEL[p.status] || escHtml(p.status)}</span></td>
+                <td data-label="AKSI" style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openPayoutDetail('${p.id}')">DETAIL</button></td>`;
+            tb.appendChild(tr);
+        });
+    };
+
+    window.openPayoutDetail = function(id) {
+        if (!payoutsDB.find(x => x.id === id)) return;
+        openPayoutId = id;
+        renderPayoutDetail();
+        byId('payout-detail-modal').classList.add('active');
+    };
+    window.closePayoutDetail = function() {
+        byId('payout-detail-modal').classList.remove('active');
+        openPayoutId = null;
+        renderPayoutTable();
+    };
+    window.openPayoutFromNotif = function(id) {
+        pushNav({ page: 'page-3', adm: 'payout', cat: '' });
+        showAdminSub('payout');
+        openPayoutDetail(id);
+    };
+
+    function renderPayoutDetail() {
+        const p = payoutsDB.find(x => x.id === openPayoutId);
+        const box = byId('payout-detail-content');
+        if (!p || !box) return;
+        const col = PO_COLOR[p.status] || '#fff';
+        let h = '';
+        h += odRow('ID Pencairan', `<span style="color:#00f2fe;">${escHtml(p.id)}</span>`);
+        h += odRow('Worker', escHtml(p.workerName) + '<br><small style="color:#00f2fe;">' + escHtml(p.workerId) + '</small>');
+        h += odRow('Nominal Pencairan', `<span style="color:#34A853; font-size:1.1rem;">${formatRp(p.amount)}</span>`);
+        h += odRow('Bank', escHtml(p.bank));
+        h += odRow('Nomor Rekening', escHtml(p.accNo) + ` <button type="button" class="mt-copy" onclick="copyToClipboard('${escHtml(p.accNo)}')">Salin</button>`);
+        h += odRow('Atas Nama', escHtml(p.accName));
+        h += odRow('Waktu Pengajuan', fmtDT(p.requestedAt));
+        h += odRow('Waktu On Process', fmtDT(p.processAt));
+        h += odRow('Waktu Success', fmtDT(p.successAt));
+        if (p.adminId) h += odRow('Diproses oleh', escHtml(p.adminId));
+        h += odRow('Status', `<span style="color:${col};">${PO_LABEL[p.status] || escHtml(p.status)}</span>`);
+
+        if (p.proofUrl) {
+            const isImg = /^image\//.test(p.proofMime || '') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(p.proofUrl);
+            h += `<div style="margin-top:14px; text-align:center;"><div style="font-size:0.75rem; color:rgba(255,255,255,0.55); margin-bottom:6px; letter-spacing:1px;">BUKTI TRANSFER</div>` +
+                 (isImg ? `<a href="${escHtml(p.proofUrl)}" target="_blank" rel="noopener"><img src="${escHtml(p.proofUrl)}" alt="Bukti Transfer" style="max-width:100%; max-height:240px; border-radius:12px; border:1px solid rgba(52,168,83,0.5);"></a>`
+                        : `<a class="pk-proof" href="${escHtml(p.proofUrl)}" target="_blank" rel="noopener">🧾 Buka Bukti Transfer${p.proofName ? ' (' + escHtml(p.proofName) + ')' : ''}</a>`) + `</div>`;
+        }
+
+        if (p.status !== 'Success') {
+            h += `<div style="margin-top:20px;">
+                <label style="display:block; font-size:0.8rem; color:rgba(255,255,255,0.6); margin-bottom:8px; letter-spacing:1px;">UBAH STATUS PENCAIRAN</label>
+                <select id="po-status-select" class="admin-input" onchange="onPayoutStatusSelect(this.value)" style="margin-bottom:10px;">
+                    <option value="" disabled ${p.status === 'Pending' ? 'selected' : ''}>-- Pilih Status --</option>
+                    <option value="On Process" ${p.status === 'On Process' ? 'selected' : ''}>On Process</option>
+                    <option value="Success" ${p.status === 'Pending' ? 'disabled' : ''}>Success${p.status === 'Pending' ? ' (proses dulu)' : ''}</option>
+                </select>
+                <div id="po-box-proc" style="display:none;">
+                    <div class="pk-note proc" style="margin-bottom:10px;">Worker akan menerima pemberitahuan: ${PO_PROC_NOTE}.</div>
+                    <button type="button" class="btn-futuristic" style="width:100%; padding:10px;" onclick="savePayoutStatus('On Process')">SIMPAN ON PROCESS</button>
+                </div>
+                <div id="po-box-success" style="display:none;">
+                    <label style="display:block; font-size:0.8rem; color:#ffaa00; margin-bottom:6px; letter-spacing:1px;">UPLOAD BUKTI TRANSFER (WAJIB)</label>
+                    <input type="file" id="po-proof" class="setup-input" accept="image/*,application/pdf" onchange="previewPayoutProof(this)" style="margin-bottom:8px;">
+                    <div id="po-proof-prev" style="text-align:center; margin-bottom:10px;"></div>
+                    <button type="button" class="btn-futuristic" style="width:100%; padding:10px; border-color:#34A853; color:#34A853;" onclick="savePayoutStatus('Success')">SIMPAN SUCCESS</button>
+                </div>
+            </div>`;
+        }
+        box.innerHTML = h;
+    }
+
+    window.onPayoutStatusSelect = function(val) {
+        const p = payoutsDB.find(x => x.id === openPayoutId);
+        if (!p) return;
+        byId('po-box-proc').style.display = (val === 'On Process' && p.status === 'Pending') ? 'block' : 'none';
+        byId('po-box-success').style.display = (val === 'Success') ? 'block' : 'none';
+    };
+
+    window.previewPayoutProof = function(input) {
+        const prev = byId('po-proof-prev'); if (!prev) return;
+        const f = input.files && input.files[0];
+        if (!f) { prev.innerHTML = ''; return; }
+        if (/^image\//.test(f.type)) {
+            const u = URL.createObjectURL(f);
+            prev.innerHTML = `<img src="${u}" alt="Pratinjau" style="max-width:100%; max-height:180px; border-radius:10px; border:1px solid rgba(255,255,255,0.2);">`;
+        } else { prev.innerHTML = `<span style="font-size:0.8rem; color:rgba(255,255,255,0.7);">📄 ${escHtml(f.name)}</span>`; }
+    };
+
+    window.savePayoutStatus = function(target) {
+        const p = payoutsDB.find(x => x.id === openPayoutId);
+        if (!p) return;
+        const done = (msg) => {
+            updatePayoutBadge();
+            try { renderAdminNotifications(); } catch (err) {}
+            renderPayoutTable(); renderPayoutDetail();
+            customAlert(msg);
+        };
+        if (target === 'On Process') {
+            if (p.status !== 'Pending') return;
+            p.status = 'On Process'; p.processAt = Date.now(); p.adminId = adminId || 'ADMIN';
+            done('Pencairan <strong>' + escHtml(p.id) + '</strong> diubah ke <strong>On Process</strong>. Worker diberi tahu: ' + PO_PROC_NOTE + '.');
+            return;
+        }
+        if (target === 'Success') {
+            if (p.status !== 'On Process') { customAlert('Ubah status ke <strong>On Process</strong> terlebih dahulu.'); return; }
+            const inp = byId('po-proof');
+            const f = inp && inp.files && inp.files[0];
+            if (!f) { customAlert('Wajib upload <strong>bukti transfer</strong> sebelum mengubah status menjadi Success.'); return; }
+            if (!/^image\//.test(f.type) && f.type !== 'application/pdf') { customAlert('Bukti transfer harus berupa gambar (JPG/PNG) atau PDF.'); return; }
+            if (f.size > 10 * 1024 * 1024) { customAlert('Ukuran bukti transfer maksimal 10 MB.'); return; }
+            customConfirm('Pastikan dana <strong>' + formatRp(p.amount) + '</strong> sudah ditransfer ke <strong>' + escHtml(p.bank) + ' ' + escHtml(p.accNo) + '</strong> a.n. ' + escHtml(p.accName) + '. Ubah status menjadi Success?', () => {
+                p.proofUrl = URL.createObjectURL(f); p.proofName = f.name; p.proofMime = f.type;
+                p.status = 'Success'; p.successAt = Date.now(); p.adminId = p.adminId || adminId || 'ADMIN';
+                done('Pencairan <strong>' + escHtml(p.id) + '</strong> berstatus <strong>Success</strong>. Bukti transfer tersimpan dan tampil di riwayat Pocket Worker.');
+            });
+        }
+    };
 
     /* =========================================
        LOGIKA CMS VIDEO & PRODUK
@@ -1293,7 +1569,7 @@ window.NexBoot = function () {
             const b = document.getElementById('btn-dash-save-cust'); if (b) b.disabled = true;
         } else {
             const lvl = calculateLevel(rec.income || 0);
-            set('dash-w-id', rec.id); set('dash-w-nik', rec.nik || '-'); set('dash-w-level', `${lvl.medal} ${lvl.name} • Bonus ${lvl.bonus}`); set('dash-w-balance', formatRp(rec.balance || 0)); set('dash-w-status', st);
+            set('dash-w-id', rec.id); set('dash-w-nik', rec.nik || '-'); set('dash-w-level', `${lvl.medal} ${lvl.name} • Bonus ${lvl.bonus}`); set('dash-w-balance', formatRp(rec.balance || 0)); set('dash-w-remaining', formatRp(pocketRemaining(rec))); set('dash-w-status', st);
             set('dash-w-name', rec.name); set('dash-w-nick', rec.nickname); set('dash-w-ttl', rec.ttl);
             set('dash-w-email', rec.email); set('dash-w-wa', rec.wa); set('dash-w-address', rec.address); set('dash-w-city', rec.city); set('dash-w-zip', rec.zip);
             set('dash-w-specs', rec.specs); set('dash-w-exp', rec.experience); set('dash-w-avail', rec.availability || 'on'); set('dash-w-tools', rec.tools); set('dash-w-port', rec.portfolio); set('dash-w-bio', rec.bio);
@@ -1389,7 +1665,7 @@ window.NexBoot = function () {
         roleEl.style.borderColor = isW ? '#ff0055' : '#00f2fe';
 
         let stats = `<div class="up-stat"><div class="lbl">Total Pengeluaran Pembelian</div><div class="val">${formatRp(rec.spent || 0)}</div><div class="sub">Dari pesanan yang sudah dikonfirmasi</div></div>`;
-        if (isW) stats += `<div class="up-stat worker"><div class="lbl">Saldo Pendapatan</div><div class="val">${formatRp(rec.balance || 0)}</div><div class="sub">Setelah pembagian hasil</div></div>`;
+        if (isW) stats += `<div class="up-stat worker"><div class="lbl">Saldo Pendapatan</div><div class="val">${formatRp(rec.balance || 0)}</div><div class="sub">Setelah pembagian hasil</div></div>` + `<div class="up-stat worker"><div class="lbl">Saldo Tersisa</div><div class="val">${formatRp(pocketRemaining(rec))}</div><div class="sub">Siap dicairkan lewat Pocket</div></div>`;
         else stats += `<div class="up-stat"><div class="lbl">Level & Diskon</div><div class="val">${escHtml(lvl.name)}</div><div class="sub">Diskon ${lvl.discount}</div></div>`;
 
         const stLabel = (st) => st === 'Pending' ? 'Menunggu Konfirmasi Admin' : st;
@@ -2015,6 +2291,12 @@ window.NexBoot = function () {
             c.innerHTML = `<div><span class="badge chat">NEW CHAT (${unreadMsgs.length})</span><br><strong>${escHtml(cv.name)}</strong><div class="notif-id">ID Nexora: ${escHtml(cv.userId)}</div><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">${escHtml(msgPreview(last))}</div></div><div class="notif-actions"><button type="button" class="btn-acc" style="color:#b388ff; border:1px solid #b388ff;" onclick="openAdminChatFromNotif('${cv.userId}')">Buka Chat</button></div>`;
             if(notifList) notifList.appendChild(c);
         });
+        payoutsDB.filter(p => p.status === 'Pending').forEach(p => {
+            hasNotif = true;
+            const c = document.createElement('div'); c.className = 'notif-card payout-notif';
+            c.innerHTML = `<div><span class="badge payout">PENCAIRAN DANA</span><br><strong>${escHtml(p.workerName)}</strong><div class="notif-id">${escHtml(p.workerId)} &bull; ${formatRp(p.amount)}</div><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">Ke: ${escHtml(p.bank)} ${escHtml(p.accNo)} a.n. ${escHtml(p.accName)}</div></div><div><button type="button" class="btn-acc acc" onclick="openPayoutFromNotif('${p.id}')">Proses</button></div>`;
+            if(notifList) notifList.appendChild(c);
+        });
         if(notifArea) notifArea.style.display = hasNotif ? 'block' : 'none';
     }
 
@@ -2140,6 +2422,7 @@ window.NexBoot = function () {
                         if (c.id === 'btn-menu-content') { viewCarousel.style.display = 'none'; viewManageContent.style.display = 'flex'; switchCMSTab('video'); }
                         if (c.id === 'btn-menu-finance') { viewCarousel.style.display = 'none'; viewFinance.style.display = 'flex'; renderFinanceTable(); }
                         if (c.id === 'btn-menu-chat') { viewCarousel.style.display = 'none'; viewChat.style.display = 'flex'; renderAdminChatList(); }
+                        if (c.id === 'btn-menu-payout') { viewCarousel.style.display = 'none'; viewPayout.style.display = 'flex'; renderPayoutTable(); }
                     }
                 }
             });
@@ -2185,6 +2468,7 @@ window.NexBoot = function () {
     updateUserTrigger();
     renderBanners();
     updateChatBadges();
+    updatePayoutBadge(); snapPayoutStatus();
     try { history.replaceState({ nex: 1, idx: 0, page: 'page-1', cat: '', adm: '' }, '', location.pathname + location.search); } catch (err) {}
 
     // Dipanggil persist.js saat data dari perangkat lain masuk -> segarkan tampilan yang relevan
@@ -2208,6 +2492,13 @@ window.NexBoot = function () {
                 if (adminAuthed) { renderAdminNotifications(); updateOrderBadge(); }
                 if (shown(viewOrders) && !openOrderId && !typing()) renderOrdersTable();
                 if (shown(viewFinance) && !typing()) renderFinanceTable();
+            }
+            if (has('payoutsDB') || has('workersDB') || has('financeDB')) {
+                updatePayoutBadge();
+                if (adminAuthed) renderAdminNotifications();
+                if (shown(viewPayout) && !openPayoutId) renderPayoutTable();
+                if (has('payoutsDB')) notifyPayoutChanges();
+                refreshPocketFields();
             }
             if (has('chatsDB')) {
                 if (currentUser && $id('chat-panel') && $id('chat-panel').classList.contains('open')) { markUserRead(); renderUserChat(); }
