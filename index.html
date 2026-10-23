@@ -259,7 +259,10 @@
     <div class="chat-panel" id="chat-panel">
         <div class="chat-head">
             <div><strong>Chat Admin Nexora</strong><span>Kirim teks, file, foto, video & voice</span></div>
-            <button type="button" id="chat-close" aria-label="Tutup chat">&#10005;</button>
+            <div class="chat-head-actions">
+                <button type="button" id="chat-clear" title="Hapus semua chat" aria-label="Hapus semua chat">&#9881;&#65039;</button>
+                <button type="button" id="chat-close" aria-label="Tutup chat">&#10005;</button>
+            </div>
         </div>
         <div class="chat-body" id="chat-user-body"></div>
         <div id="chat-user-composer"></div>
@@ -871,6 +874,7 @@
 
     <script src="data.js"></script>
     <script src="script.js"></script>
+    <script src="cloud-config.js"></script>
     <script src="persist.js"></script>
     <script src="translate.js"></script>
     <script>

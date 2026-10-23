@@ -285,6 +285,7 @@ window.NexBoot = function () {
                 deadlineDate: new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0, 10), // Default 7 hari ke depan
                 completedDate: null,
                 isRead: false,
+                createdAt: Date.now(),
                 category: p.category,
                 baseNominal: basePrice,
                 uniqueCode: uniqueCode,
@@ -309,6 +310,11 @@ window.NexBoot = function () {
                     if (!exists) {
                         ordersDB.unshift(currentActiveOrder);
                         updateOrderBadge();
+                        // Hubungkan admin dengan pemesan: pesan otomatis masuk ke chat
+                        try {
+                            addChatMessage(currentUser.id, 'user', { text: `🛒 Pesanan baru ${currentActiveOrder.id}\nProduk: ${currentActiveOrder.productName}\nNominal: ${formatRp(currentActiveOrder.nominal)}\nMohon konfirmasi pembayaran. Terima kasih.` });
+                            onUserMessageSent(currentUser.id);
+                        } catch (err) {}
                     }
                 }
                 document.getElementById('payment-modal').classList.remove('active');
@@ -364,7 +370,7 @@ window.NexBoot = function () {
                     <div style="font-size:0.75rem; color:#ffaa00; margin-top:4px;">Deadline: <input type="date" value="${o.deadlineDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'deadline', this.value)" style="${inputStyle} border-color:#ffaa00;"></div>
                 </td>
                 <td><span style="color:${orderStatusColor(o.status)}; font-weight:bold;">${escHtml(o.status)}</span>${evalBadge}</td>
-                <td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openOrderDetailModal('${o.id}')">DETAIL</button></td>
+                <td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openOrderDetailModal('${o.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-view" title="Hubungi Customer" onclick="event.stopPropagation(); contactOrderCustomer('${o.id}')">💬</button></td>
             `;
             tbody.appendChild(tr);
         });
@@ -447,8 +453,39 @@ window.NexBoot = function () {
                     </div>
                 </div>`;
         }
+        // Hubungi pemesan (Chat Nexora / WhatsApp / Email)
+        const buyer = findBuyer(o);
+        const waNum = waDigits(buyer && buyer.wa);
+        const waMsgTxt = encodeURIComponent(`Halo ${(buyer && buyer.name) || o.customerName || ''}, saya Admin Nexora terkait pesanan ${o.id} (${o.productName}).`);
+        html += `<div style="margin-top:18px;"><div class="profile-label">Hubungi Pemesan</div><div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;">`
+            + `<button type="button" class="contact-link" style="cursor:pointer; color:#b388ff; border-color:rgba(179,136,255,0.5); font-family:inherit;" onclick="contactOrderCustomer('${o.id}')">💬 Chat di Nexora</button>`
+            + (waNum ? `<a class="contact-link contact-wa" href="https://wa.me/${waNum}?text=${waMsgTxt}" target="_blank" rel="noopener">WhatsApp</a>` : '')
+            + (buyer && buyer.email ? `<a class="contact-link contact-email" href="mailto:${escHtml(buyer.email)}?subject=${encodeURIComponent('Pesanan Nexora ' + o.id)}">Email</a>` : '')
+            + `</div></div>`;
         box.innerHTML = html;
     }
+
+    function waDigits(wa) {
+        let d = String(wa || '').replace(/\D/g, '');
+        if (d.startsWith('0')) d = '62' + d.slice(1);
+        return d;
+    }
+
+    // Admin langsung membuka chat dengan pemesan dari pesanan
+    window.contactOrderCustomer = function(id) {
+        const o = ordersDB.find(x => x.id === id);
+        if (!o || !o.customerId) { customAlert('Data pemesan tidak ditemukan.'); return; }
+        document.getElementById('order-detail-modal').classList.remove('active');
+        openOrderId = null;
+        pushNav({ page: 'page-3', adm: 'chat', cat: '' });
+        openAdminChatFromNotif(o.customerId);
+    };
+
+    window.openOrderFromNotif = function(id) {
+        pushNav({ page: 'page-3', adm: 'orders', cat: '' });
+        showAdminSub('orders');
+        openOrderDetailModal(id);
+    };
 
     window.onOrderStatusSelect = function(val) {
         const o = ordersDB.find(x => x.id === openOrderId);
@@ -542,8 +579,9 @@ window.NexBoot = function () {
 
     window.markOrdersAsRead = function() {
         if (typeof ordersDB !== 'undefined') {
-            ordersDB.forEach(o => o.isRead = true);
+            ordersDB.forEach(o => { if (!o.isRead) o.isRead = true; });
             updateOrderBadge();
+            try { renderAdminNotifications(); } catch (err) {}
         }
     };
 
@@ -1545,9 +1583,68 @@ window.NexBoot = function () {
             else if (m.type === 'video') body = `<video src="${m.url}" controls preload="metadata" playsinline></video>`;
             else if (m.type === 'voice' || m.type === 'audio') body = `<audio src="${m.url}" controls preload="metadata"></audio>`;
             else body = `<a class="chat-file" href="${m.url}" download="${escHtml(m.fileName)}"><span class="ic">📄</span><span><span class="nm">${escHtml(m.fileName)}</span><br><span class="sz">${fmtSize(m.size || 0)} &bull; ketuk untuk unduh</span></span></a>`;
-            return `<div class="chat-msg ${m.from === me ? 'mine' : 'theirs'}">${body}<span class="chat-time">${chatClock(m.ts)}</span></div>`;
+            return `<div class="chat-msg ${m.from === me ? 'mine' : 'theirs'}" data-mid="${escHtml(m.id)}">${body}<span class="chat-time">${chatClock(m.ts)}</span></div>`;
         }).join('');
+        bindChatLongPress(container);
         container.scrollTop = container.scrollHeight;
+    }
+
+    // ----- Hapus chat: tahan bubble (atau klik kanan) -> pilihan Hapus -----
+    function closeChatCtx() { const old = document.getElementById('chat-ctx'); if (old) old.remove(); }
+    function showChatCtx(mid, x, y) {
+        closeChatCtx();
+        const box = document.createElement('div');
+        box.id = 'chat-ctx';
+        box.innerHTML = '<button type="button">🗑️ Hapus pesan</button>';
+        box.dataset.t = String(Date.now());
+        document.body.appendChild(box);
+        const w = box.offsetWidth, h = box.offsetHeight;
+        box.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
+        box.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
+        box.querySelector('button').addEventListener('click', () => { closeChatCtx(); deleteChatMessage(mid); });
+    }
+    ['click', 'touchstart', 'scroll'].forEach(ev => document.addEventListener(ev, (e) => {
+        const c = document.getElementById('chat-ctx');
+        if (!c || c.contains(e.target)) return;
+        if (Date.now() - Number(c.dataset.t || 0) < 500) return;
+        closeChatCtx();
+    }, true));
+
+    function bindChatLongPress(container) {
+        if (!container || container._lp) return;
+        container._lp = true;
+        let timer = null, sx = 0, sy = 0, fired = false;
+        const cancel = () => { clearTimeout(timer); timer = null; };
+        const bubble = (e) => (e.target && e.target.closest) ? e.target.closest('.chat-msg') : null;
+        const begin = (e, p) => {
+            const b = bubble(e); if (!b) return;
+            sx = p.clientX; sy = p.clientY; fired = false; cancel();
+            timer = setTimeout(() => { fired = true; showChatCtx(b.dataset.mid, p.clientX, p.clientY); }, 500);
+        };
+        container.addEventListener('touchstart', (e) => begin(e, e.touches[0]), { passive: true });
+        container.addEventListener('touchmove', (e) => { const p = e.touches[0]; if (Math.abs(p.clientX - sx) > 10 || Math.abs(p.clientY - sy) > 10) cancel(); }, { passive: true });
+        ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach(ev => container.addEventListener(ev, cancel));
+        container.addEventListener('mousedown', (e) => { if (e.button === 0) begin(e, e); });
+        container.addEventListener('contextmenu', (e) => { const b = bubble(e); if (!b) return; e.preventDefault(); fired = true; showChatCtx(b.dataset.mid, e.clientX, e.clientY); });
+        // cegah link/gambar terbuka setelah tahan lama
+        container.addEventListener('click', (e) => { if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; } }, true);
+    }
+
+    function refreshChatViews() {
+        try {
+            if ($id('chat-panel') && $id('chat-panel').classList.contains('open')) renderUserChat();
+            if ($id('admin-chat-view') && $id('admin-chat-view').style.display !== 'none') { renderAdminChatList(); renderAdminThreadBody(); }
+            updateChatBadges();
+            renderAdminNotifications();
+        } catch (err) {}
+    }
+    window.deleteChatMessage = function(mid) {
+        chatsDB = chatsDB.filter(m => m.id !== mid);
+        refreshChatViews();
+    };
+    function clearChatFor(userId) {
+        chatsDB = chatsDB.filter(m => m.userId !== userId);
+        refreshChatViews();
     }
 
     // Komposer pesan (dipakai user & admin): teks, lampiran foto/video/file, rekam suara
@@ -1667,6 +1764,11 @@ window.NexBoot = function () {
     }
     const chatFabEl = $id('chat-fab');
     if (chatFabEl) chatFabEl.addEventListener('click', () => { const p = $id('chat-panel'); if (p.classList.contains('open')) p.classList.remove('open'); else openUserChat(); });
+    const chatClearEl = $id('chat-clear');
+    if (chatClearEl) chatClearEl.addEventListener('click', () => {
+        if (!currentUser) return;
+        customConfirm('Hapus <strong>semua chat</strong> Anda dengan Admin? Tindakan ini tidak dapat dibatalkan.', () => clearChatFor(currentUser.id));
+    });
     const chatCloseEl = $id('chat-close');
     if (chatCloseEl) chatCloseEl.addEventListener('click', () => $id('chat-panel').classList.remove('open'));
 
@@ -1693,8 +1795,11 @@ window.NexBoot = function () {
         chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
         const info = chatUserInfo(userId);
         const th = $id('admin-chat-thread');
-        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span></div></div></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
+        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
         th.querySelector('.back-list').addEventListener('click', () => $id('admin-chat-layout').classList.remove('show-thread'));
+        th.querySelector('.clear-all').addEventListener('click', () => {
+            customConfirm('Hapus <strong>semua chat</strong> dengan <strong>' + escHtml(info.name) + '</strong> (' + escHtml(userId) + ')?', () => clearChatFor(userId));
+        });
         $id('admin-chat-layout').classList.add('show-thread');
         buildComposer($id('admin-chat-composer'), (payload) => {
             addChatMessage(activeAdminChatUser, 'admin', payload);
@@ -1706,8 +1811,7 @@ window.NexBoot = function () {
         try { renderAdminNotifications(); } catch (err) {}
     }
     window.openAdminChatFromNotif = function(userId) {
-        viewCarousel.style.display = 'none';
-        viewChat.style.display = 'flex';
+        showAdminSub('chat');
         openAdminThread(userId);
     };
 
@@ -1895,6 +1999,13 @@ window.NexBoot = function () {
             if(notifList) notifList.appendChild(c);
         });
 
+        ordersDB.filter(o => !o.isRead).forEach(o => {
+            hasNotif = true;
+            const c = document.createElement('div'); c.className = 'notif-card order-notif';
+            c.innerHTML = `<div><span class="badge order">PESANAN BARU</span><br><strong>${escHtml(o.productName)}</strong><div class="notif-id">${escHtml(o.id)} &bull; ${formatRp(o.nominal)}</div><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">Pemesan: ${escHtml(o.customerName || '-')} (${escHtml(o.customerId || '-')})</div></div><div class="notif-actions"><button type="button" class="btn-acc" style="color:#b388ff; border:1px solid #b388ff;" onclick="contactOrderCustomer('${o.id}')">Chat Customer</button><button type="button" class="btn-acc acc" onclick="openOrderFromNotif('${o.id}')">Lihat</button></div>`;
+            if(notifList) notifList.appendChild(c);
+        });
+
         chatConversations().forEach(cv => {
             const unreadMsgs = cv.msgs.filter(m => m.from === 'user' && !m.readByAdmin);
             if (!unreadMsgs.length) return;
@@ -2075,5 +2186,39 @@ window.NexBoot = function () {
     renderBanners();
     updateChatBadges();
     try { history.replaceState({ nex: 1, idx: 0, page: 'page-1', cat: '', adm: '' }, '', location.pathname + location.search); } catch (err) {}
+
+    // Dipanggil persist.js saat data dari perangkat lain masuk -> segarkan tampilan yang relevan
+    window.NexRefresh = function(cols) {
+        const has = (c) => !cols || cols.indexOf(c) > -1;
+        const shown = (el) => el && el.style.display !== 'none';
+        const typing = () => { const a = document.activeElement; return a && a.closest && a.closest('#admin-orders-view, #admin-finance-view') && /INPUT|SELECT|TEXTAREA/.test(a.tagName); };
+        try {
+            if (has('videosDB')) { renderMainVideos(); if (shown(viewManageContent) && currentCMSCategory === 'video' && $id('content-list-view').style.display !== 'none') renderAdminVideoList(); }
+            if (has('bannersDB')) { renderBanners(); if (shown(viewManageContent) && currentCMSCategory === 'banner') renderAdminBanners(); }
+            if (has('productsDB')) {
+                if (currentOpenMainCategory) renderMainProducts(currentOpenMainCategory);
+                if (shown(viewManageContent) && currentCMSCategory !== 'video' && currentCMSCategory !== 'banner' && $id('product-list-view').style.display !== 'none') renderAdminProductList(currentCMSCategory);
+            }
+            if (has('workersDB') || has('customersDB')) {
+                updateUserTrigger();
+                if (shown(viewDataWorker)) renderWorkerTable();
+                if (shown(viewDataCustomer)) renderCustomerTable();
+            }
+            if (has('ordersDB') || has('workersDB') || has('customersDB') || has('financeDB')) {
+                if (adminAuthed) { renderAdminNotifications(); updateOrderBadge(); }
+                if (shown(viewOrders) && !openOrderId && !typing()) renderOrdersTable();
+                if (shown(viewFinance) && !typing()) renderFinanceTable();
+            }
+            if (has('chatsDB')) {
+                if (currentUser && $id('chat-panel') && $id('chat-panel').classList.contains('open')) { markUserRead(); renderUserChat(); }
+                if (shown(viewChat)) {
+                    if (activeAdminChatUser) { chatsDB.forEach(m => { if (m.userId === activeAdminChatUser && m.from === 'user' && !m.readByAdmin) m.readByAdmin = true; }); renderAdminThreadBody(); }
+                    renderAdminChatList();
+                }
+                updateChatBadges();
+                if (adminAuthed) renderAdminNotifications();
+            }
+        } catch (err) {}
+    };
 
 };
