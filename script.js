@@ -2461,7 +2461,7 @@ window.NexBoot = function () {
     function showChatCtx(mid, x, y, side) {
         closeChatCtx();
         const html = (mid ? '<button type="button" data-a="info"><span class="ctx-i">i</span> Info pesan</button>' : '') + (mid ? '<button type="button" data-a="del">🗑️ Hapus pesan</button>' : '') +
-                     (side === 'admin' ? '<button type="button" data-a="back" style="color:#fff;">← Kembali (keluar dari ruang chat)</button>' : '');
+                     (side === 'admin' ? '<button type="button" data-a="back" style="color:#fff;">← Kembali</button>' : '');
         if (!html) return;
         const box = document.createElement('div');
         box.id = 'chat-ctx';
