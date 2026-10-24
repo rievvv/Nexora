@@ -2305,6 +2305,32 @@ window.NexBoot = function () {
         if (iso) return parseInt(iso[3], 10) + ' ' + MON_ID[parseInt(iso[2], 10) - 1] + ' ' + iso[1];
         return raw;
     }
+    // Ulang tahun: hari ini = merah, besok (H-1) = kuning
+    const BD_MON = { jan: 1, feb: 2, mar: 3, apr: 4, mei: 5, may: 5, jun: 6, jul: 7, agu: 8, ags: 8, aug: 8, sep: 9, okt: 10, oct: 10, nov: 11, des: 12, dec: 12 };
+    function birthParts(rec) {
+        if (!rec) return null;
+        let raw = rec.dob || '';
+        if (!raw && rec.ttl) { const p = String(rec.ttl).split(','); raw = p.length > 1 ? p[p.length - 1] : p[0]; }
+        raw = String(raw || '').trim();
+        if (!raw) return null;
+        let m = raw.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+        if (m) return { d: +m[3], mo: +m[2] };
+        m = raw.match(/(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/);
+        if (m) return { d: +m[1], mo: +m[2] };
+        m = raw.match(/(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})/);
+        if (m && BD_MON[m[2].slice(0, 3).toLowerCase()]) return { d: +m[1], mo: BD_MON[m[2].slice(0, 3).toLowerCase()] };
+        return null;
+    }
+    function birthdayDays(rec) {
+        const b = birthParts(rec);
+        if (!b || b.d < 1 || b.d > 31 || b.mo < 1 || b.mo > 12) return null;
+        const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        let next = new Date(today.getFullYear(), b.mo - 1, b.d);
+        if (next < today) next = new Date(today.getFullYear() + 1, b.mo - 1, b.d);
+        return Math.round((next - today) / 86400000);
+    }
+    function birthdayClass(rec) { const n = birthdayDays(rec); return n === 0 ? 'bd-today' : (n === 1 ? 'bd-soon' : ''); }
+    function birthdayTag(rec) { const n = birthdayDays(rec); return n === 0 ? ' • HARI INI! 🎉' : (n === 1 ? ' • BESOK (H-1)' : ''); }
     const badgeNum = (n) => n > 99 ? '99+' : String(n);
     function unreadFromUser(userId) { return chatsDB.filter(m => m.userId === userId && m.from === 'user' && !m.readByAdmin).length; }
     function chatDot(id) { const n = unreadFromUser(id); return n ? `<span class="row-dot">${badgeNum(n)}</span>` : ''; }
@@ -2328,7 +2354,7 @@ window.NexBoot = function () {
     }
     function chatConversations() {
         const map = {};
-        chatsDB.forEach(m => { (map[m.userId] = map[m.userId] || { userId: m.userId, msgs: [] }).msgs.push(m); });
+        chatsDB.forEach(m => { if (m.hideAdmin) return; (map[m.userId] = map[m.userId] || { userId: m.userId, msgs: [] }).msgs.push(m); });
         return Object.values(map).map(cv => { const i = chatUserInfo(cv.userId); cv.name = i.name; cv.role = i.role; cv.last = cv.msgs[cv.msgs.length - 1]; return cv; }).sort((a, b) => b.last.ts - a.last.ts);
     }
 
@@ -2350,21 +2376,29 @@ window.NexBoot = function () {
 
     // ----- Hapus chat: tahan bubble (atau klik kanan) -> pilihan Hapus -----
     function closeChatCtx() { const old = document.getElementById('chat-ctx'); if (old) old.remove(); }
-    function showChatCtx(mid, x, y) {
+    function showChatCtx(mid, x, y, side) {
         closeChatCtx();
+        const html = (mid ? '<button type="button" data-a="del">🗑️ Hapus pesan</button>' : '') +
+                     (side === 'admin' ? '<button type="button" data-a="back" style="color:#fff;">← Kembali (keluar dari ruang chat)</button>' : '');
+        if (!html) return;
         const box = document.createElement('div');
         box.id = 'chat-ctx';
-        box.innerHTML = '<button type="button">🗑️ Hapus pesan</button>';
+        box.innerHTML = html;
         box.dataset.t = String(Date.now());
         document.body.appendChild(box);
         const w = box.offsetWidth, h = box.offsetHeight;
         box.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px';
         box.style.top = Math.max(8, Math.min(y, window.innerHeight - h - 8)) + 'px';
-        box.querySelector('button').addEventListener('click', () => {
+        box.addEventListener('click', (e) => {
+            const bt = e.target.closest && e.target.closest('button');
+            if (!bt) return;
             closeChatCtx();
-            const adminView = adminAuthed && $id('admin-chat-view') && $id('admin-chat-view').style.display !== 'none';
-            if (adminView) askDeletePassword('Hapus <strong>pesan</strong> ini?', () => deleteChatMessage(mid));
-            else deleteChatMessage(mid);
+            if (bt.dataset.a === 'del') {
+                if (side === 'admin') askDeletePassword('Hapus <strong>pesan</strong> ini di sisi Admin?<br><span style="font-size:0.8rem; color:#ffaa00;">Pesan di sisi user tetap ada.</span>', () => deleteChatMessage(mid, 'admin'));
+                else deleteChatMessage(mid, 'user');
+            } else if (bt.dataset.a === 'back') {
+                resetAdminThread(); renderAdminChatList();
+            }
         });
     }
     ['click', 'touchstart', 'scroll'].forEach(ev => document.addEventListener(ev, (e) => {
@@ -2380,16 +2414,17 @@ window.NexBoot = function () {
         let timer = null, sx = 0, sy = 0, fired = false;
         const cancel = () => { clearTimeout(timer); timer = null; };
         const bubble = (e) => (e.target && e.target.closest) ? e.target.closest('.chat-msg') : null;
+        const side = container.id === 'admin-chat-body' ? 'admin' : 'user';
         const begin = (e, p) => {
             const b = bubble(e); if (!b) return;
             sx = p.clientX; sy = p.clientY; fired = false; cancel();
-            timer = setTimeout(() => { fired = true; showChatCtx(b.dataset.mid, p.clientX, p.clientY); }, 500);
+            timer = setTimeout(() => { fired = true; showChatCtx(b.dataset.mid, p.clientX, p.clientY, side); }, 500);
         };
         container.addEventListener('touchstart', (e) => begin(e, e.touches[0]), { passive: true });
         container.addEventListener('touchmove', (e) => { const p = e.touches[0]; if (Math.abs(p.clientX - sx) > 10 || Math.abs(p.clientY - sy) > 10) cancel(); }, { passive: true });
         ['touchend', 'touchcancel', 'mouseup', 'mouseleave'].forEach(ev => container.addEventListener(ev, cancel));
         container.addEventListener('mousedown', (e) => { if (e.button === 0) begin(e, e); });
-        container.addEventListener('contextmenu', (e) => { const b = bubble(e); if (!b) return; e.preventDefault(); fired = true; showChatCtx(b.dataset.mid, e.clientX, e.clientY); });
+        container.addEventListener('contextmenu', (e) => { const b = bubble(e); if (!b) return; e.preventDefault(); fired = true; showChatCtx(b.dataset.mid, e.clientX, e.clientY, side); });
         // cegah link/gambar terbuka setelah tahan lama
         container.addEventListener('click', (e) => { if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; } }, true);
     }
@@ -2402,12 +2437,22 @@ window.NexBoot = function () {
             renderAdminNotifications();
         } catch (err) {}
     }
-    window.deleteChatMessage = function(mid) {
-        chatsDB = chatsDB.filter(m => m.id !== mid);
+    // Hapus per sisi: Admin hanya menyembunyikan di sisi Admin, user hanya di sisi user.
+    // Pesan benar-benar dibuang hanya jika kedua sisi sudah menghapusnya.
+    function hideChatMsgs(pred, side) {
+        chatsDB.forEach(m => {
+            if (!pred(m)) return;
+            if (side === 'admin') { m.hideAdmin = true; if (m.from === 'user') m.readByAdmin = true; }
+            else { m.hideUser = true; if (m.from === 'admin') m.readByUser = true; }
+        });
+        chatsDB = chatsDB.filter(m => !(m.hideAdmin && m.hideUser));
+    }
+    window.deleteChatMessage = function(mid, side) {
+        hideChatMsgs(m => m.id === mid, side === 'admin' ? 'admin' : 'user');
         refreshChatViews();
     };
-    function clearChatFor(userId) {
-        chatsDB = chatsDB.filter(m => m.userId !== userId);
+    function clearChatFor(userId, side) {
+        hideChatMsgs(m => m.userId === userId, side === 'admin' ? 'admin' : 'user');
         refreshChatViews();
     }
 
@@ -2480,12 +2525,12 @@ window.NexBoot = function () {
     function markUserRead() { if (currentUser) chatsDB.forEach(m => { if (m.userId === currentUser.id && m.from === 'admin') m.readByUser = true; }); }
     function renderUserChat() {
         if (!currentUser) return;
-        renderChatMessages($id('chat-user-body'), chatsDB.filter(m => m.userId === currentUser.id), 'user');
+        renderChatMessages($id('chat-user-body'), chatsDB.filter(m => m.userId === currentUser.id && !m.hideUser), 'user');
     }
     function updateChatBadges() {
         const fb = $id('chat-fab-badge'), fab = $id('chat-fab');
         if (fb) {
-            const n = currentUser ? chatsDB.filter(m => m.userId === currentUser.id && m.from === 'admin' && !m.readByUser).length : 0;
+            const n = currentUser ? chatsDB.filter(m => m.userId === currentUser.id && m.from === 'admin' && !m.readByUser && !m.hideUser).length : 0;
             fb.innerText = badgeNum(n); fb.style.display = n > 0 ? 'flex' : 'none';
             if (fab) fab.classList.toggle('has-unread', n > 0);
         }
@@ -2538,7 +2583,7 @@ window.NexBoot = function () {
     const chatClearEl = $id('chat-clear');
     if (chatClearEl) chatClearEl.addEventListener('click', () => {
         if (!currentUser) return;
-        customConfirm('Hapus <strong>semua chat</strong> Anda dengan Admin? Tindakan ini tidak dapat dibatalkan.', () => clearChatFor(currentUser.id));
+        customConfirm('Hapus <strong>semua chat</strong> Anda dengan Admin? Hanya terhapus di sisi Anda; chat di sisi Admin tetap ada.', () => clearChatFor(currentUser.id, 'user'));
     });
     const chatCloseEl = $id('chat-close');
     if (chatCloseEl) chatCloseEl.addEventListener('click', () => $id('chat-panel').classList.remove('open'));
@@ -2573,7 +2618,7 @@ window.NexBoot = function () {
         syncAdminChatTabs();
 
         const byUser = {};
-        chatsDB.forEach(m => { (byUser[m.userId] = byUser[m.userId] || []).push(m); });
+        chatsDB.forEach(m => { if (m.hideAdmin) return; (byUser[m.userId] = byUser[m.userId] || []).push(m); });
         const pool = []
             .concat(adminChatTab !== 'customer' ? workersDB.map(r => ({ r: r, role: 'Worker' })) : [])
             .concat(adminChatTab !== 'worker' ? customersDB.map(r => ({ r: r, role: 'Customer' })) : []);
@@ -2589,7 +2634,7 @@ window.NexBoot = function () {
             const unread = pp.msgs.filter(m => m.from === 'user' && !m.readByAdmin).length;
             const av = renderAvatarHtml(r.avatar, escHtml((r.name || '?').trim().charAt(0).toUpperCase()));
             const pv = pp.last ? escHtml(msgPreview(pp.last)) : '<i style="opacity:0.7;">Belum ada chat - klik untuk memulai</i>';
-            return `<div class="chat-conv ${r.id === activeAdminChatUser ? 'active' : ''} ${unread ? 'has-unread' : ''}" data-uid="${escHtml(r.id)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;">${isUserOnline(r.id) ? '<span class="online-dot" title="Online"></span>' : ''}<div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(r.name)}</div><div class="idn">ID Nexora: ${escHtml(r.id)} &bull; ${pp.role}</div><div class="dobl">🎂 ${escHtml(userBirthDate(r) || 'Tanggal lahir belum diisi')}</div><div class="pv">${pv}</div></div>${unread ? `<div class="unread" title="${unread} pesan baru">${badgeNum(unread)}</div>` : ''}</div>`;
+            return `<div class="chat-conv ${r.id === activeAdminChatUser ? 'active' : ''} ${unread ? 'has-unread' : ''} ${birthdayClass(r)}" data-uid="${escHtml(r.id)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;">${isUserOnline(r.id) ? '<span class="online-dot" title="Online"></span>' : ''}<div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(r.name)}</div><div class="idn">ID Nexora: ${escHtml(r.id)} &bull; ${pp.role}</div><div class="dobl ${birthdayClass(r)}">🎂 ${escHtml(userBirthDate(r) || 'Tanggal lahir belum diisi')}${birthdayTag(r)}</div><div class="pv">${pv}</div></div>${unread ? `<div class="unread" title="${unread} pesan baru">${badgeNum(unread)}</div>` : ''}</div>`;
         }).join('');
         list.querySelectorAll('.chat-conv').forEach(n => n.addEventListener('click', () => openAdminThread(n.dataset.uid)));
         list.scrollTop = keepScroll;
@@ -2623,17 +2668,27 @@ window.NexBoot = function () {
     if (adminChatSearch) adminChatSearch.addEventListener('input', () => renderAdminChatList());
     function renderAdminThreadBody() {
         if (!activeAdminChatUser) return;
-        renderChatMessages($id('admin-chat-body'), chatsDB.filter(m => m.userId === activeAdminChatUser), 'admin');
+        renderChatMessages($id('admin-chat-body'), chatsDB.filter(m => m.userId === activeAdminChatUser && !m.hideAdmin), 'admin');
     }
     function openAdminThread(userId) {
         activeAdminChatUser = userId;
         chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
         const info = chatUserInfo(userId);
         const th = $id('admin-chat-thread');
-        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span><span>🎂 ${escHtml(userBirthDate(chatUserRecord(userId)) || 'Tanggal lahir belum diisi')}</span><span id="thread-online"></span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
+        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span><span class="dobl ${birthdayClass(chatUserRecord(userId))}">🎂 ${escHtml(userBirthDate(chatUserRecord(userId)) || 'Tanggal lahir belum diisi')}${birthdayTag(chatUserRecord(userId))}</span><span id="thread-online"></span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
+        if (!th._ctx) {
+            th._ctx = true;
+            th.addEventListener('contextmenu', (e) => {
+                if (e.defaultPrevented || !activeAdminChatUser) return;
+                if (e.target.closest && e.target.closest('textarea, input')) return;
+                e.preventDefault();
+                const bb = e.target.closest ? e.target.closest('.chat-msg') : null;
+                showChatCtx(bb ? bb.dataset.mid : null, e.clientX, e.clientY, 'admin');
+            });
+        }
         th.querySelector('.back-list').addEventListener('click', () => $id('admin-chat-layout').classList.remove('show-thread'));
         th.querySelector('.clear-all').addEventListener('click', () => {
-            askDeletePassword('Hapus <strong>semua chat</strong> dengan <strong>' + escHtml(info.name) + '</strong> (' + escHtml(userId) + ')?', () => clearChatFor(userId));
+            askDeletePassword('Hapus <strong>semua chat</strong> dengan <strong>' + escHtml(info.name) + '</strong> (' + escHtml(userId) + ')?<br><span style="font-size:0.8rem; color:#ffaa00;">Hanya terhapus di sisi Admin; chat di sisi user tetap ada.</span>', () => clearChatFor(userId, 'admin'));
         });
         $id('admin-chat-layout').classList.add('show-thread');
         buildComposer($id('admin-chat-composer'), (payload) => {

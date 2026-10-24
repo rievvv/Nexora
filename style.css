@@ -832,3 +832,23 @@ html[data-lang="ar"] .lang-menu li { direction: rtl; }
 /* ===== Titik online (hijau) ===== */
 .online-dot { position: absolute; right: -2px; bottom: -2px; width: 13px; height: 13px; border-radius: 50%; background: #34A853; border: 2px solid #0b1120; box-shadow: 0 0 8px #34A853; z-index: 5; }
 .chat-head .on-txt { color: #34A853 !important; font-weight: 700; }
+
+/* ---- Ulang tahun: H-1 kuning, hari-H merah ---- */
+.chat-conv .dobl.bd-soon, .chat-head span.dobl.bd-soon { color: #ffcc00 !important; font-weight: 800; }
+.chat-conv .dobl.bd-today, .chat-head span.dobl.bd-today { color: #ff0055 !important; font-weight: 800; }
+.chat-conv.bd-soon { box-shadow: inset 4px 0 0 #ffcc00; background: rgba(255,204,0,0.07); }
+.chat-conv.bd-today { box-shadow: inset 4px 0 0 #ff0055; background: rgba(255,0,85,0.09); }
+#chat-ctx button + button { border-top: 1px solid rgba(255,255,255,0.1); }
+
+/* ---- Terjemahan di HP: tap tidak boleh "tertelan" oleh pembungkus <font> Google ---- */
+html[data-lang]:not([data-lang="id"]) button font, html[data-lang]:not([data-lang="id"]) a font,
+html[data-lang]:not([data-lang="id"]) [onclick] font, html[data-lang]:not([data-lang="id"]) .card font,
+html[data-lang]:not([data-lang="id"]) .admin-card font, html[data-lang]:not([data-lang="id"]) .role-card font,
+html[data-lang]:not([data-lang="id"]) .data-row font, html[data-lang]:not([data-lang="id"]) .chat-conv font,
+html[data-lang]:not([data-lang="id"]) .lang-menu font, html[data-lang]:not([data-lang="id"]) .btn-futuristic font,
+html[data-lang]:not([data-lang="id"]) .btn-back-menu font, html[data-lang]:not([data-lang="id"]) .close-modal font { pointer-events: none; }
+button, a, .btn-futuristic, .btn-back-menu, .btn-buy, .btn-home, .btn-logout, .card, .admin-card, .role-card, .close-modal,
+.user-trigger, .admin-trigger, .chat-fab, .lang-btn, .lang-menu li, .chat-conv, .admin-tab, .data-row { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.scene, .admin-scene { touch-action: pan-y; }
+html.translated-ltr body, html.translated-rtl body { top: 0 !important; position: relative; min-height: 100%; }
+body > .skiptranslate, body > .VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; height: 0 !important; }

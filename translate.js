@@ -113,6 +113,14 @@
         if (cur !== 'id') { loadWidget(); }
     }
 
+    // Google memasang pendengar "hover" (balon teks asli). Di HP, ketukan pertama dianggap hover
+    // sehingga klik tombol/kartu tidak terjadi. Hentikan kejadian itu agar tidak sampai ke skrip Google.
+    ['mouseover', 'mouseout'].forEach(function (ev) {
+        window.addEventListener(ev, function (e) {
+            if (document.documentElement.getAttribute('data-lang') !== 'id' && /translated-/.test(document.documentElement.className)) e.stopImmediatePropagation();
+        }, true);
+    });
+
     window.NexLang = { set: setLang, get: function () { return cur; } };
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
 })();
