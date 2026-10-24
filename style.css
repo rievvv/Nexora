@@ -852,3 +852,17 @@ button, a, .btn-futuristic, .btn-back-menu, .btn-buy, .btn-home, .btn-logout, .c
 .scene, .admin-scene { touch-action: pan-y; }
 html.translated-ltr body, html.translated-rtl body { top: 0 !important; position: relative; min-height: 100%; }
 body > .skiptranslate, body > .VIpgJd-ZVi9od-ORHb-OEVmcd { display: none !important; height: 0 !important; }
+
+/* ===== Chat: tanda terkirim (abu-abu) / dibaca (biru) + info pesan ===== */
+:root { --chat-read: #00b7ff; }   /* ganti warna ini bila ingin disamakan persis dengan huruf O logo */
+.chat-msg .chat-time { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
+.chat-tick { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #9aa3b2; border: 1px solid rgba(255,255,255,0.35); flex: 0 0 9px; transition: background 0.4s ease, box-shadow 0.4s ease; }
+.chat-tick.read { background: var(--chat-read); border-color: #fff; box-shadow: 0 0 6px var(--chat-read); }
+#chat-ctx .ctx-i { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-right: 6px; border-radius: 50%; border: 1.5px solid #00f2fe; color: #00f2fe; font-size: 0.7rem; font-weight: 800; font-style: italic; font-family: Georgia, serif; }
+.mi-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px dashed rgba(255,255,255,0.12); font-size: 0.85rem; line-height: 1.5; }
+.mi-row:last-child { border-bottom: none; }
+.mi-dot { width: 12px; height: 12px; border-radius: 50%; background: #9aa3b2; border: 1px solid rgba(255,255,255,0.4); margin-top: 4px; flex: 0 0 12px; }
+.mi-dot.read { background: var(--chat-read); box-shadow: 0 0 8px var(--chat-read); }
+
+/* ===== Swipe sisi layar (HP) -> halaman berikutnya ===== */
+.swipe-fwd-hint { position: fixed; right: 6px; top: 50%; width: 46px; height: 46px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(0,242,254,0.2); border: 1px solid #00f2fe; color: #00f2fe; font-size: 2rem; line-height: 1; padding-bottom: 4px; z-index: 10050; pointer-events: none; opacity: 0; transform: translate(0,-50%) scale(0.6); transition: opacity 0.15s ease; }

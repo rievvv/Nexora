@@ -133,6 +133,35 @@ window.NexBoot = function () {
         applyNav(st, 0);
     });
 
+    // Swipe dari sisi kanan layar (HP) -> halaman berikutnya (redo / history forward)
+    (function bindEdgeSwipe() {
+        let sx = 0, sy = 0, tracking = false, hint = null;
+        const ZONE = 80;
+        const mk = () => { if (!hint) { hint = document.createElement('div'); hint.className = 'swipe-fwd-hint'; hint.innerHTML = '&rsaquo;'; document.body.appendChild(hint); } return hint; };
+        const reset = () => { tracking = false; if (hint) { hint.style.opacity = '0'; hint.style.transform = 'translate(0,-50%) scale(0.6)'; } };
+        document.addEventListener('touchstart', (e) => {
+            if (e.touches.length !== 1) return;
+            const t = e.touches[0];
+            const bad = e.target.closest && e.target.closest('input, textarea, select, canvas, .scene, .admin-scene, .banner-slider, .data-table-wrapper, #chat-panel, audio, video');
+            tracking = !bad && (window.innerWidth - t.clientX) <= ZONE;
+            sx = t.clientX; sy = t.clientY;
+        }, { passive: true });
+        document.addEventListener('touchmove', (e) => {
+            if (!tracking) return;
+            const t = e.touches[0], dx = sx - t.clientX, dy = Math.abs(t.clientY - sy);
+            if (dy > dx * 0.8 && dy > 20) { reset(); return; }
+            if (dx > 10) { const h = mk(), p = Math.min(1, dx / 90); h.style.opacity = String(p); h.style.transform = 'translate(' + (-p * 36) + 'px,-50%) scale(' + (0.6 + 0.4 * p) + ')'; }
+        }, { passive: true });
+        document.addEventListener('touchend', (e) => {
+            if (!tracking) return;
+            const t = e.changedTouches[0], dx = sx - t.clientX, dy = Math.abs(t.clientY - sy);
+            const go = dx > 90 && dy < dx * 0.6;
+            reset();
+            if (go) { try { history.forward(); } catch (err) {} }
+        }, { passive: true });
+        document.addEventListener('touchcancel', reset, { passive: true });
+    })();
+
     window.navigateTo = function(targetPageId, direction = 'forward', fromHistory = false) {
         if (isAnimating || currentPageId === targetPageId) return;
         isAnimating = true;
@@ -376,8 +405,9 @@ window.NexBoot = function () {
 
     // Evaluasi ketepatan waktu (dipakai saat pesanan Complete)
     function evaluateOrder(o) {
-        if (!o.deadlineDate || !o.completedDate) return { color: '#34A853', text: 'Done' };
-        const late = dayDiff(o.deadlineDate, o.completedDate);
+        const dl = o.deadlineAdjusted || o.deadlineDate;   // deadline yang berlaku = hasil adjust (jika ada)
+        if (!dl || !o.completedDate) return { color: '#34A853', text: 'Done' };
+        const late = dayDiff(dl, o.completedDate);
         if (late <= 0) return { color: '#34A853', text: 'Done' };
         if (late === 1) return { color: '#ffaa00', text: 'Potongan 10% (H+1)' };
         if (late <= 3) return { color: '#ffaa00', text: `Potongan 50% (H+${late})` };
@@ -409,6 +439,7 @@ window.NexBoot = function () {
                 <td onclick="event.stopPropagation()">
                     <div style="font-size:0.75rem; color:rgba(255,255,255,0.6);">Mulai: <input type="date" value="${o.startDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'start', this.value)" style="${inputStyle}"></div>
                     <div style="font-size:0.75rem; color:#ffaa00; margin-top:4px;">Deadline: <input type="date" value="${o.deadlineDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'deadline', this.value)" style="${inputStyle} border-color:#ffaa00;"></div>
+                    <div style="font-size:0.75rem; color:#ff9d4d; margin-top:4px;">Adjust: <input type="date" value="${o.deadlineAdjusted || ''}" min="${o.startDate || ''}" onchange="updateOrderDate('${o.id}', 'adjust', this.value)" style="${inputStyle} border-color:#ff9d4d;"></div>
                 </td>
                 <td><span style="color:${orderStatusColor(o.status)}; font-weight:bold;">${escHtml(o.status)}</span>${evalBadge}</td>
                 <td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openOrderDetailModal('${o.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-view" title="Hubungi Customer" onclick="event.stopPropagation(); contactOrderCustomer('${o.id}')">💬</button><button type="button" class="btn-action-sm btn-del" title="Hapus Pesanan" onclick="event.stopPropagation(); deleteOrder('${o.id}')">🗑️</button></td>
@@ -417,17 +448,23 @@ window.NexBoot = function () {
         });
     };
 
-    // Admin memilih tanggal mulai & tanggal deadline
+    // Admin mengatur tanggal mulai, deadline, dan ADJUST deadline (perpanjangan/percepatan)
     window.updateOrderDate = function(id, type, val) {
         const ord = ordersDB.find(x => x.id === id);
         if (!ord) return;
-        if (!val) { renderOrdersTable(); return; }
-        if (type === 'start') {
+        if (type === 'adjust') {
+            if (!val || val === ord.deadlineDate) { ord.deadlineAdjusted = ''; }
+            else if (ord.startDate && val < ord.startDate) { customAlert('Deadline adjust tidak boleh sebelum tanggal mulai.'); renderOrdersTable(); return; }
+            else { ord.deadlineAdjusted = val; }
+        } else if (!val) { renderOrdersTable(); return; }
+        else if (type === 'start') {
             ord.startDate = val;
-            if (ord.deadlineDate && ord.deadlineDate < val) ord.deadlineDate = val; // deadline ikut menyesuaikan
+            if (ord.deadlineDate && ord.deadlineDate < val) ord.deadlineDate = val;      // deadline ikut menyesuaikan
+            if (ord.deadlineAdjusted && ord.deadlineAdjusted < val) ord.deadlineAdjusted = '';
         } else {
             ord.deadlineDate = val;
-            if (ord.startDate && ord.startDate > val) ord.startDate = val; // tanggal mulai ikut menyesuaikan
+            if (ord.startDate && ord.startDate > val) ord.startDate = val;               // tanggal mulai ikut menyesuaikan
+            if (ord.deadlineAdjusted === val) ord.deadlineAdjusted = '';
         }
         renderOrdersTable();
         if (openOrderId === id) renderOrderDetail();
@@ -453,6 +490,19 @@ window.NexBoot = function () {
         return `<div style="display:flex; justify-content:space-between; align-items:center; gap:15px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.08);"><span style="color:rgba(255,255,255,0.6); font-size:0.85rem;">${label}</span><span style="font-weight:700; text-align:right; color:#fff;">${valueHtml}</span></div>`;
     }
 
+    // Deadline sebelum & setelah di-Adjust (kosong "-" jika tidak ada adjust)
+    function deadlineRows(o, ev) {
+        const adj = o.deadlineAdjusted || '';
+        const col = ev ? ev.color : '#ffaa00';
+        const tag = ev ? ` <span style="color:${ev.color}; margin-left:6px;">${ev.text}</span>` : '';
+        if (adj) {
+            return odRow('Deadline Sebelum Adjust', `<span style="color:rgba(255,255,255,0.55); text-decoration:line-through;">${fmtDate(o.deadlineDate)}</span>`)
+                 + odRow('Deadline Setelah Adjust', `<span style="color:${col};">${fmtDate(adj)}</span>${tag}`);
+        }
+        return odRow('Deadline Sebelum Adjust', `<span style="color:${col};">${fmtDate(o.deadlineDate)}</span>${tag}`)
+             + odRow('Deadline Setelah Adjust', '<span style="color:rgba(255,255,255,0.4);">-</span>');
+    }
+
     function renderOrderDetail() {
         const o = ordersDB.find(x => x.id === openOrderId);
         const box = document.getElementById('order-detail-content');
@@ -475,11 +525,11 @@ window.NexBoot = function () {
             // Informasi tambahan setelah pesanan selesai
             const ev = evaluateOrder(o);
             html += odRow('ID Nexora Worker', escHtml(o.workerId));
-            html += odRow('Deadline', `<span style="color:${ev.color};">${fmtDate(o.deadlineDate)}</span> <span style="color:${ev.color}; margin-left:6px;">${ev.text}</span>`);
+            html += deadlineRows(o, ev);
             html += odRow('Diselesaikan Pada', fmtDate(o.completedDate));
             html += odRow('Status', badge);
         } else {
-            html += odRow('Deadline', `<span style="color:#ffaa00;">${fmtDate(o.deadlineDate)}</span>`);
+            html += deadlineRows(o, null);
             html += odRow('Status Saat Ini', badge);
             if (hasWorker) html += odRow('ID Nexora Worker', escHtml(o.workerId));
             html += `
@@ -797,14 +847,29 @@ window.NexBoot = function () {
         if (!from && !to) return 'Semua tanggal';
         return (from ? idDateShort(from) : 'Awal') + ' s/d ' + (to ? idDateShort(to) : 'Sekarang');
     }
+    // Hasil Nexora per baris = Uang Masuk - Uang Keluar (upah worker dipotong dari pesanan induknya).
+    // Pesanan tanpa bagi hasil/worker -> seluruhnya (termasuk kode unik) milik Nexora.
+    function finNexoraNet(rows) {
+        const inSet = new Set(rows.map(f => f.id));
+        const net = {};
+        rows.forEach(f => {
+            if (f.kind === 'upah') net[f.id] = inSet.has(f.parent) ? 0 : -(f.keluar || 0);
+            else if (f.kind === 'pemasukan') {
+                const kids = rows.filter(k => k.kind === 'upah' && k.parent === f.id).reduce((a, k) => a + (k.keluar || 0), 0);
+                net[f.id] = (f.masuk || 0) - (f.keluar || 0) - kids;
+            } else net[f.id] = (f.masuk || 0) - (f.keluar || 0);
+        });
+        return net;
+    }
     function finExportRows(rows) {
+        const nets = finNexoraNet(rows);
         return rows.map((f, i) => {
             const inc = finTotalIncome(f);
             const pct = (f.masuk > 0 && f.pct !== null && f.pct !== undefined && f.pct !== '') ? f.pct : '';
-            return [i + 1, f.id, f.date || '', FIN_TYPES[f.code] || 'Lainnya', f.productName || '', f.ref || '-', f.masuk || 0, f.keluar || 0, pct, inc === null ? '' : inc];
+            return [i + 1, f.id, f.date || '', FIN_TYPES[f.code] || 'Lainnya', f.productName || '', f.ref || '-', f.masuk || 0, f.keluar || 0, pct, inc === null ? '' : inc, nets[f.id]];
         });
     }
-    const FIN_HEAD = ['No', 'ID Keuangan', 'Tanggal', 'Jenis', 'Nama Produk', 'Kode Pesanan / ID Worker', 'Uang Masuk', 'Uang Keluar', 'Bagi Hasil (%)', 'Total Income'];
+    const FIN_HEAD = ['No', 'ID Keuangan', 'Tanggal', 'Jenis', 'Nama Produk', 'Kode Pesanan / ID Worker', 'Uang Masuk', 'Uang Keluar', 'Bagi Hasil (%)', 'Total Income', 'Hasil Nexora (Masuk - Keluar)'];
     function finFileSuffix() {
         const from = valOf('fin-from'), to = valOf('fin-to');
         return (from || to) ? ((from || 'awal') + '_sd_' + (to || 'sekarang')) : 'semua-tanggal';
@@ -818,7 +883,8 @@ window.NexBoot = function () {
         let sumIn = 0, sumOut = 0, sumInc = 0;
         rows.forEach(f => { sumIn += f.masuk || 0; sumOut += f.keluar || 0; sumInc += finTotalIncome(f) || 0; });
         const lines = [['LAPORAN KEUANGAN NEXORA'], ['Periode', finPeriodText()], [], FIN_HEAD].concat(data);
-        lines.push(['', '', '', '', '', 'TOTAL', sumIn, sumOut, '', sumInc]);
+        lines.push(['', '', '', '', '', 'TOTAL', sumIn, sumOut, '', sumInc, sumIn - sumOut]);
+        lines.push([], ['RINGKASAN'], ['Total Pemasukan', sumIn], ['Total Pengeluaran', sumOut], ['HASIL AKHIR NEXORA (Pemasukan - Pengeluaran)', sumIn - sumOut]);
         const csv = '\ufeff' + lines.map(r => r.map(cell).join(';')).join('\r\n');
         dlFile('laporan-keuangan_' + finFileSuffix() + '.csv', 'text/csv;charset=utf-8', csv);
     }
@@ -830,8 +896,9 @@ window.NexBoot = function () {
         let sumIn = 0, sumOut = 0, sumInc = 0;
         rows.forEach(f => { sumIn += f.masuk || 0; sumOut += f.keluar || 0; sumInc += finTotalIncome(f) || 0; });
         const rp = (n) => n ? formatRp(n) : '-';
-        const body = finExportRows(rows).map(r => '<tr><td>' + r[0] + '</td><td>' + escHtml(r[1]) + '</td><td>' + escHtml(idDateShort(r[2]) || '-') + '</td><td>' + escHtml(r[3]) + '</td><td>' + escHtml(r[4]) + '</td><td>' + escHtml(r[5]) + '</td><td class="n">' + rp(r[6]) + '</td><td class="n">' + rp(r[7]) + '</td><td class="n">' + (r[8] === '' ? '-' : escHtml(r[8]) + '%') + '</td><td class="n">' + (r[9] === '' ? '-' : formatRp(r[9])) + '</td></tr>').join('');
-        w.document.write('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Laporan Keuangan Nexora</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#111;font-size:11px}h1{font-size:18px;margin:0 0 4px}p{margin:0 0 10px;color:#444}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:5px 6px;text-align:left;vertical-align:top}th{background:#eee}td.n{text-align:right;white-space:nowrap}tfoot td{font-weight:bold;background:#f5f5f5}</style></head><body><h1>LAPORAN KEUANGAN NEXORA</h1><p>Periode: ' + escHtml(finPeriodText()) + ' &bull; Dicetak: ' + escHtml(new Date().toLocaleString('id-ID')) + '</p><table><thead><tr>' + FIN_HEAD.map(h => '<th>' + escHtml(h) + '</th>').join('') + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr><td colspan="6" style="text-align:right">TOTAL</td><td class="n">' + formatRp(sumIn) + '</td><td class="n">' + formatRp(sumOut) + '</td><td></td><td class="n">' + formatRp(sumInc) + '</td></tr></tfoot></table></body></html>');
+        const netTxt = (n) => n === 0 ? '-' : (n < 0 ? '-' : '') + formatRp(Math.abs(n));
+        const body = finExportRows(rows).map(r => '<tr><td>' + r[0] + '</td><td>' + escHtml(r[1]) + '</td><td>' + escHtml(idDateShort(r[2]) || '-') + '</td><td>' + escHtml(r[3]) + '</td><td>' + escHtml(r[4]) + '</td><td>' + escHtml(r[5]) + '</td><td class="n">' + rp(r[6]) + '</td><td class="n">' + rp(r[7]) + '</td><td class="n">' + (r[8] === '' ? '-' : escHtml(r[8]) + '%') + '</td><td class="n">' + (r[9] === '' ? '-' : formatRp(r[9])) + '</td><td class="n"><b>' + netTxt(r[10]) + '</b></td></tr>').join('');
+        w.document.write('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Laporan Keuangan Nexora</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#111;font-size:11px}h1{font-size:18px;margin:0 0 4px}p{margin:0 0 10px;color:#444}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:5px 6px;text-align:left;vertical-align:top}th{background:#eee}td.n{text-align:right;white-space:nowrap}tfoot td{font-weight:bold;background:#f5f5f5}table.sum{width:auto;margin-top:14px}table.sum td{padding:6px 14px}table.sum tr.fin td{font-size:13px;font-weight:bold;background:#e8f7ec}</style></head><body><h1>LAPORAN KEUANGAN NEXORA</h1><p>Periode: ' + escHtml(finPeriodText()) + ' &bull; Dicetak: ' + escHtml(new Date().toLocaleString('id-ID')) + '</p><table><thead><tr>' + FIN_HEAD.map(h => '<th>' + escHtml(h) + '</th>').join('') + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr><td colspan="6" style="text-align:right">TOTAL</td><td class="n">' + formatRp(sumIn) + '</td><td class="n">' + formatRp(sumOut) + '</td><td></td><td class="n">' + formatRp(sumInc) + '</td><td class="n">' + netTxt(sumIn - sumOut) + '</td></tr></tfoot></table><table class="sum"><tr><td>Total Pemasukan</td><td class="n">' + formatRp(sumIn) + '</td></tr><tr><td>Total Pengeluaran</td><td class="n">' + formatRp(sumOut) + '</td></tr><tr class="fin"><td>HASIL AKHIR NEXORA (Pemasukan - Pengeluaran)</td><td class="n">' + netTxt(sumIn - sumOut) + '</td></tr></table></body></html>');
         w.document.close(); w.focus();
         setTimeout(() => { try { w.print(); } catch (err) {} }, 400);
     }
@@ -876,7 +943,7 @@ window.NexBoot = function () {
             <div class="fin-card"><div class="lbl">Total Uang Masuk</div><div class="val">${formatRp(sumIn)}</div></div>
             <div class="fin-card out"><div class="lbl">Total Uang Keluar</div><div class="val">${formatRp(sumOut)}</div></div>
             <div class="fin-card inc"><div class="lbl">Total Income (Bagi Hasil)</div><div class="val">${formatRp(sumInc)}</div></div>
-            <div class="fin-card"><div class="lbl">Selisih (Masuk - Keluar)</div><div class="val">${sumIn - sumOut < 0 ? '-' : ''}${formatRp(Math.abs(sumIn - sumOut))}</div></div>`;
+            <div class="fin-card"><div class="lbl">Hasil Nexora (Masuk - Keluar)</div><div class="val">${sumIn - sumOut < 0 ? '-' : ''}${formatRp(Math.abs(sumIn - sumOut))}</div></div>`;
     };
 
     bindDateRange('fin-from', 'fin-to', () => renderFinanceTable());
@@ -2123,7 +2190,7 @@ window.NexBoot = function () {
         let html = '';
         orders.forEach(o => {
             const hasW = o.workerId && o.workerId !== '-';
-            html += `<div class="cd-project"><strong>${escHtml(o.productName)}</strong> <span style="color:#00f2fe;">(${escHtml(o.id)})</span><br>Status: <span style="color:${orderStatusColor(o.status)}; font-weight:700;">${escHtml(o.status)}</span><br>Mulai: ${fmtDate(o.startDate)} &bull; Deadline: <span style="color:#ffaa00; font-weight:700;">${fmtDate(o.deadlineDate)}</span>${hasW ? `<br>Worker: ${escHtml(o.workerId)}` : ''}</div>`;
+            html += `<div class="cd-project"><strong>${escHtml(o.productName)}</strong> <span style="color:#00f2fe;">(${escHtml(o.id)})</span><br>Status: <span style="color:${orderStatusColor(o.status)}; font-weight:700;">${escHtml(o.status)}</span><br>Mulai: ${fmtDate(o.startDate)} &bull; Deadline: <span style="color:#ffaa00; font-weight:700;">${fmtDate(o.deadlineAdjusted || o.deadlineDate)}</span>${hasW ? `<br>Worker: ${escHtml(o.workerId)}` : ''}</div>`;
         });
         if (!orders.length) {
             html = c.project
@@ -2332,6 +2399,19 @@ window.NexBoot = function () {
     function birthdayClass(rec) { const n = birthdayDays(rec); return n === 0 ? 'bd-today' : (n === 1 ? 'bd-soon' : ''); }
     function birthdayTag(rec) { const n = birthdayDays(rec); return n === 0 ? ' • HARI INI! 🎉' : (n === 1 ? ' • BESOK (H-1)' : ''); }
     const badgeNum = (n) => n > 99 ? '99+' : String(n);
+    // Tandai pesan dibaca + catat waktu dibaca (untuk info pesan)
+    function markReadAt(m, key) { m[key] = true; if (!m.readAt) m.readAt = Date.now(); }
+    const fmtDTS = (ts) => { if (!ts) return '-'; const d = new Date(ts); return `${pad2(d.getDate())} ${BLN[d.getMonth()]} ${d.getFullYear()}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; };
+    function showMsgInfo(mid, side) {
+        const m = chatsDB.find(x => x.id === mid);
+        if (!m) return;
+        const mine = m.from === side;
+        const read = m.from === 'admin' ? m.readByUser : m.readByAdmin;
+        const readTxt = read ? (m.readAt ? fmtDTS(m.readAt) : 'Sudah dibaca') : 'Belum dibaca';
+        customAlert(`<div style="text-align:left;"><div style="font-weight:800; color:#00f2fe; margin-bottom:12px; letter-spacing:1px;">INFO PESAN</div>`
+            + `<div class="mi-row"><span class="mi-dot"></span><div><b>${mine ? 'Terkirim' : 'Diterima'}</b><br>${fmtDTS(m.ts)}</div></div>`
+            + `<div class="mi-row"><span class="mi-dot ${read ? 'read' : ''}"></span><div><b>${mine ? 'Dibaca' : 'Dibaca oleh Anda'}</b><br>${readTxt}</div></div></div>`);
+    }
     function unreadFromUser(userId) { return chatsDB.filter(m => m.userId === userId && m.from === 'user' && !m.readByAdmin).length; }
     function chatDot(id) { const n = unreadFromUser(id); return n ? `<span class="row-dot">${badgeNum(n)}</span>` : ''; }
     function msgPreview(m) {
@@ -2368,7 +2448,9 @@ window.NexBoot = function () {
             else if (m.type === 'video') body = `<video src="${m.url}" controls preload="metadata" playsinline></video>`;
             else if (m.type === 'voice' || m.type === 'audio') body = `<audio src="${m.url}" controls preload="metadata"></audio>`;
             else body = `<a class="chat-file" href="${m.url}" download="${escHtml(m.fileName)}"><span class="ic">📄</span><span><span class="nm">${escHtml(m.fileName)}</span><br><span class="sz">${fmtSize(m.size || 0)} &bull; ketuk untuk unduh</span></span></a>`;
-            return `<div class="chat-msg ${m.from === me ? 'mine' : 'theirs'}" data-mid="${escHtml(m.id)}">${body}<span class="chat-time">${chatClock(m.ts)}</span></div>`;
+            const isMine = m.from === me;
+            const tick = isMine ? `<i class="chat-tick ${(m.from === 'admin' ? m.readByUser : m.readByAdmin) ? 'read' : ''}" title="${(m.from === 'admin' ? m.readByUser : m.readByAdmin) ? 'Dibaca' : 'Terkirim'}"></i>` : '';
+            return `<div class="chat-msg ${isMine ? 'mine' : 'theirs'}" data-mid="${escHtml(m.id)}">${body}<span class="chat-time">${chatClock(m.ts)}${tick}</span></div>`;
         }).join('');
         bindChatLongPress(container);
         container.scrollTop = container.scrollHeight;
@@ -2378,7 +2460,7 @@ window.NexBoot = function () {
     function closeChatCtx() { const old = document.getElementById('chat-ctx'); if (old) old.remove(); }
     function showChatCtx(mid, x, y, side) {
         closeChatCtx();
-        const html = (mid ? '<button type="button" data-a="del">🗑️ Hapus pesan</button>' : '') +
+        const html = (mid ? '<button type="button" data-a="info"><span class="ctx-i">i</span> Info pesan</button>' : '') + (mid ? '<button type="button" data-a="del">🗑️ Hapus pesan</button>' : '') +
                      (side === 'admin' ? '<button type="button" data-a="back" style="color:#fff;">← Kembali (keluar dari ruang chat)</button>' : '');
         if (!html) return;
         const box = document.createElement('div');
@@ -2393,6 +2475,7 @@ window.NexBoot = function () {
             const bt = e.target.closest && e.target.closest('button');
             if (!bt) return;
             closeChatCtx();
+            if (bt.dataset.a === 'info') { showMsgInfo(mid, side); return; }
             if (bt.dataset.a === 'del') {
                 if (side === 'admin') askDeletePassword('Hapus <strong>pesan</strong> ini di sisi Admin?<br><span style="font-size:0.8rem; color:#ffaa00;">Pesan di sisi user tetap ada.</span>', () => deleteChatMessage(mid, 'admin'));
                 else deleteChatMessage(mid, 'user');
@@ -2442,8 +2525,8 @@ window.NexBoot = function () {
     function hideChatMsgs(pred, side) {
         chatsDB.forEach(m => {
             if (!pred(m)) return;
-            if (side === 'admin') { m.hideAdmin = true; if (m.from === 'user') m.readByAdmin = true; }
-            else { m.hideUser = true; if (m.from === 'admin') m.readByUser = true; }
+            if (side === 'admin') { m.hideAdmin = true; if (m.from === 'user') markReadAt(m, 'readByAdmin'); }
+            else { m.hideUser = true; if (m.from === 'admin') markReadAt(m, 'readByUser'); }
         });
         chatsDB = chatsDB.filter(m => !(m.hideAdmin && m.hideUser));
     }
@@ -2522,7 +2605,7 @@ window.NexBoot = function () {
 
     // ----- Sisi user -----
     let userComposerBuilt = false;
-    function markUserRead() { if (currentUser) chatsDB.forEach(m => { if (m.userId === currentUser.id && m.from === 'admin') m.readByUser = true; }); }
+    function markUserRead() { if (currentUser) chatsDB.forEach(m => { if (m.userId === currentUser.id && m.from === 'admin') markReadAt(m, 'readByUser'); }); }
     function renderUserChat() {
         if (!currentUser) return;
         renderChatMessages($id('chat-user-body'), chatsDB.filter(m => m.userId === currentUser.id && !m.hideUser), 'user');
@@ -2572,7 +2655,7 @@ window.NexBoot = function () {
     // Dipanggil setiap user mengirim pesan -> notifikasi admin (Nama + ID Nexora)
     function onUserMessageSent(userId) {
         if (activeAdminChatUser === userId && $id('admin-chat-view') && $id('admin-chat-view').style.display !== 'none') {
-            chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
+            chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') markReadAt(m, 'readByAdmin'); });
             renderAdminThreadBody();
         }
         renderAdminChatList(); updateChatBadges();
@@ -2672,7 +2755,7 @@ window.NexBoot = function () {
     }
     function openAdminThread(userId) {
         activeAdminChatUser = userId;
-        chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
+        chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') markReadAt(m, 'readByAdmin'); });
         const info = chatUserInfo(userId);
         const th = $id('admin-chat-thread');
         th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span><span class="dobl ${birthdayClass(chatUserRecord(userId))}">🎂 ${escHtml(userBirthDate(chatUserRecord(userId)) || 'Tanggal lahir belum diisi')}${birthdayTag(chatUserRecord(userId))}</span><span id="thread-online"></span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
@@ -3172,7 +3255,7 @@ window.NexBoot = function () {
             if (has('chatsDB')) {
                 if (currentUser && $id('chat-panel') && $id('chat-panel').classList.contains('open')) { markUserRead(); renderUserChat(); }
                 if (shown(viewChat)) {
-                    if (activeAdminChatUser) { chatsDB.forEach(m => { if (m.userId === activeAdminChatUser && m.from === 'user' && !m.readByAdmin) m.readByAdmin = true; }); renderAdminThreadBody(); }
+                    if (activeAdminChatUser) { chatsDB.forEach(m => { if (m.userId === activeAdminChatUser && m.from === 'user' && !m.readByAdmin) markReadAt(m, 'readByAdmin'); }); renderAdminThreadBody(); }
                     renderAdminChatList();
                 }
                 updateChatBadges();
