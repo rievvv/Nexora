@@ -813,3 +813,22 @@ html[data-lang="ar"] .lang-menu li { direction: rtl; }
 .row-dot { position: absolute; top: -8px; right: -8px; min-width: 18px; height: 18px; font-size: 0.6rem; padding: 0 4px; border-radius: 9px; display: inline-flex; }
 .admin-chat-tabs .admin-tab { padding-left: 4px; padding-right: 4px; }
 .admin-chat-tabs .admin-tab { min-width: 0; flex: 1 1 0; }
+/* ===== Filter laporan (Keuangan & Pencairan) ===== */
+.rpt-filter { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 16px; padding: 14px; border: 1px solid rgba(0,242,254,0.2); border-radius: 14px; background: rgba(0,0,0,0.25); position: relative; z-index: 100; }
+.rpt-field { display: flex; flex-direction: column; min-width: 150px; }
+.rpt-field.rpt-grow { flex: 1 1 240px; }
+.rpt-field label { font-size: 0.72rem; letter-spacing: 1px; color: rgba(255,255,255,0.6); margin-bottom: 6px; text-transform: uppercase; }
+.rpt-field .admin-input { margin-bottom: 0; padding: 10px 12px; color-scheme: dark; }
+.rpt-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.rpt-btn { padding: 10px 16px; font-size: 0.8rem; margin: 0; width: auto; }
+.rpt-info { flex: 1 1 100%; font-size: 0.78rem; color: rgba(255,255,255,0.6); }
+@media (max-width: 600px) { .rpt-field { flex: 1 1 100%; } .rpt-actions { width: 100%; } .rpt-actions .rpt-btn { flex: 1 1 auto; } }
+
+/* ===== Status pencairan baru ===== */
+.pk-note.hold { background: rgba(255,170,0,0.12); color: #ffaa00; border: 1px solid rgba(255,170,0,0.4); }
+.pk-note.rej { background: rgba(255,77,109,0.12); color: #ff6b8a; border: 1px solid rgba(255,77,109,0.45); }
+.po-reason-txt { font-size: 0.72rem; margin-top: 4px; max-width: 220px; white-space: normal; line-height: 1.35; }
+
+/* ===== Titik online (hijau) ===== */
+.online-dot { position: absolute; right: -2px; bottom: -2px; width: 13px; height: 13px; border-radius: 50%; background: #34A853; border: 2px solid #0b1120; box-shadow: 0 0 8px #34A853; z-index: 5; }
+.chat-head .on-txt { color: #34A853 !important; font-weight: 700; }

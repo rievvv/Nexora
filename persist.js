@@ -1,4 +1,4 @@
-/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB */
+/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB */
 /* =========================================================
    NEXORA - PENYIMPANAN PERMANEN + SINKRONISASI CLOUD
    - Semua database (user, produk, video, banner, pesanan, keuangan, chat)
@@ -15,7 +15,7 @@
 
     var DB_NAME = 'nexora-storage', DB_VER = 1;
     var STATE_KEY = 'state';
-    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB', 'payoutsDB'];
+    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB', 'payoutsDB', 'presenceDB'];
 
     var CFG = window.NEX_CLOUD || {};
     var CLOUD = !!(CFG.url && CFG.anonKey && /^https?:\/\//.test(CFG.url));
@@ -37,7 +37,8 @@
             workersDB: workersDB, customersDB: customersDB, videosDB: videosDB,
             productsDB: productsDB, ordersDB: ordersDB, financeDB: financeDB,
             bannersDB: bannersDB, chatsDB: chatsDB,
-            payoutsDB: (typeof payoutsDB !== 'undefined') ? payoutsDB : []
+            payoutsDB: (typeof payoutsDB !== 'undefined') ? payoutsDB : [],
+            presenceDB: (typeof presenceDB !== 'undefined') ? presenceDB : []
         };
     }
     function setState(o) {
@@ -50,6 +51,7 @@
         if (Array.isArray(o.bannersDB)) bannersDB = o.bannersDB;
         if (Array.isArray(o.chatsDB)) chatsDB = o.chatsDB;
         if (Array.isArray(o.payoutsDB) && typeof payoutsDB !== 'undefined') payoutsDB = o.payoutsDB;
+        if (Array.isArray(o.presenceDB) && typeof presenceDB !== 'undefined') presenceDB = o.presenceDB;
     }
     function liveSig() { try { return JSON.stringify(getState()); } catch (e) { return String(Math.random()); } }
 

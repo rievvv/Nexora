@@ -757,6 +757,85 @@ window.NexBoot = function () {
         });
     };
 
+    /* ----- Filter tanggal (dipakai Laporan Keuangan & Pencairan) ----- */
+    function bindDateRange(fromId, toId, onChange) {
+        const a = document.getElementById(fromId), b = document.getElementById(toId);
+        if (!a || !b) return;
+        const sync = (src) => {
+            if (a.value && b.value && b.value < a.value) {
+                if (src === 'to') { customAlert('Tanggal akhir tidak boleh lebih kecil dari tanggal awal.'); }
+                b.value = a.value;
+            }
+            b.min = a.value || '';
+            a.max = b.value || '';
+        };
+        a.addEventListener('change', () => { sync('from'); onChange(); });
+        b.addEventListener('change', () => { sync('to'); onChange(); });
+    }
+    function resetDateRange(fromId, toId) {
+        const a = document.getElementById(fromId), b = document.getElementById(toId);
+        if (a) { a.value = ''; a.max = ''; }
+        if (b) { b.value = ''; b.min = ''; }
+    }
+    const valOf = (id) => { const el = document.getElementById(id); return el ? el.value : ''; };
+    const idDateShort = (iso) => { if (!iso) return ''; const [y, m, d] = iso.split('-').map(Number); return d + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][m - 1] + ' ' + y; };
+    function dlFile(name, mime, content) {
+        const blob = new Blob([content], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 3000);
+    }
+
+    // Data transaksi sesuai rentang tanggal yang dipilih
+    function finFiltered() {
+        const from = valOf('fin-from'), to = valOf('fin-to');
+        return financeDB.filter(f => (!from || String(f.date) >= from) && (!to || String(f.date) <= to));
+    }
+    function finPeriodText() {
+        const from = valOf('fin-from'), to = valOf('fin-to');
+        if (!from && !to) return 'Semua tanggal';
+        return (from ? idDateShort(from) : 'Awal') + ' s/d ' + (to ? idDateShort(to) : 'Sekarang');
+    }
+    function finExportRows(rows) {
+        return rows.map((f, i) => {
+            const inc = finTotalIncome(f);
+            const pct = (f.masuk > 0 && f.pct !== null && f.pct !== undefined && f.pct !== '') ? f.pct : '';
+            return [i + 1, f.id, f.date || '', FIN_TYPES[f.code] || 'Lainnya', f.productName || '', f.ref || '-', f.masuk || 0, f.keluar || 0, pct, inc === null ? '' : inc];
+        });
+    }
+    const FIN_HEAD = ['No', 'ID Keuangan', 'Tanggal', 'Jenis', 'Nama Produk', 'Kode Pesanan / ID Worker', 'Uang Masuk', 'Uang Keluar', 'Bagi Hasil (%)', 'Total Income'];
+    function finFileSuffix() {
+        const from = valOf('fin-from'), to = valOf('fin-to');
+        return (from || to) ? ((from || 'awal') + '_sd_' + (to || 'sekarang')) : 'semua-tanggal';
+    }
+    function downloadFinanceCSV() {
+        const rows = finFiltered();
+        if (!rows.length) { customAlert('Tidak ada data keuangan pada rentang tanggal ini untuk diunduh.'); return; }
+        // teks diawali = + - @ diberi tanda ' agar tidak dibaca sebagai rumus Excel
+        const cell = (v) => { let t = String(v === null || v === undefined ? '' : v); if (typeof v === 'string' && /^[=+\-@]/.test(t)) t = "'" + t; return '"' + t.replace(/"/g, '""') + '"'; };
+        const data = finExportRows(rows);
+        let sumIn = 0, sumOut = 0, sumInc = 0;
+        rows.forEach(f => { sumIn += f.masuk || 0; sumOut += f.keluar || 0; sumInc += finTotalIncome(f) || 0; });
+        const lines = [['LAPORAN KEUANGAN NEXORA'], ['Periode', finPeriodText()], [], FIN_HEAD].concat(data);
+        lines.push(['', '', '', '', '', 'TOTAL', sumIn, sumOut, '', sumInc]);
+        const csv = '\ufeff' + lines.map(r => r.map(cell).join(';')).join('\r\n');
+        dlFile('laporan-keuangan_' + finFileSuffix() + '.csv', 'text/csv;charset=utf-8', csv);
+    }
+    function downloadFinancePDF() {
+        const rows = finFiltered();
+        if (!rows.length) { customAlert('Tidak ada data keuangan pada rentang tanggal ini untuk diunduh.'); return; }
+        const w = window.open('', '_blank');
+        if (!w) { customAlert('Browser memblokir jendela unduhan. Izinkan pop-up untuk situs ini lalu coba lagi.'); return; }
+        let sumIn = 0, sumOut = 0, sumInc = 0;
+        rows.forEach(f => { sumIn += f.masuk || 0; sumOut += f.keluar || 0; sumInc += finTotalIncome(f) || 0; });
+        const rp = (n) => n ? formatRp(n) : '-';
+        const body = finExportRows(rows).map(r => '<tr><td>' + r[0] + '</td><td>' + escHtml(r[1]) + '</td><td>' + escHtml(idDateShort(r[2]) || '-') + '</td><td>' + escHtml(r[3]) + '</td><td>' + escHtml(r[4]) + '</td><td>' + escHtml(r[5]) + '</td><td class="n">' + rp(r[6]) + '</td><td class="n">' + rp(r[7]) + '</td><td class="n">' + (r[8] === '' ? '-' : escHtml(r[8]) + '%') + '</td><td class="n">' + (r[9] === '' ? '-' : formatRp(r[9])) + '</td></tr>').join('');
+        w.document.write('<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><title>Laporan Keuangan Nexora</title><style>@page{size:A4 landscape;margin:12mm}body{font-family:Arial,sans-serif;color:#111;font-size:11px}h1{font-size:18px;margin:0 0 4px}p{margin:0 0 10px;color:#444}table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:5px 6px;text-align:left;vertical-align:top}th{background:#eee}td.n{text-align:right;white-space:nowrap}tfoot td{font-weight:bold;background:#f5f5f5}</style></head><body><h1>LAPORAN KEUANGAN NEXORA</h1><p>Periode: ' + escHtml(finPeriodText()) + ' &bull; Dicetak: ' + escHtml(new Date().toLocaleString('id-ID')) + '</p><table><thead><tr>' + FIN_HEAD.map(h => '<th>' + escHtml(h) + '</th>').join('') + '</tr></thead><tbody>' + body + '</tbody><tfoot><tr><td colspan="6" style="text-align:right">TOTAL</td><td class="n">' + formatRp(sumIn) + '</td><td class="n">' + formatRp(sumOut) + '</td><td></td><td class="n">' + formatRp(sumInc) + '</td></tr></tfoot></table></body></html>');
+        w.document.close(); w.focus();
+        setTimeout(() => { try { w.print(); } catch (err) {} }, 400);
+    }
+
     window.renderFinanceTable = function() {
         const tb = document.getElementById('finance-table-tbody');
         const tf = document.getElementById('finance-table-tfoot');
@@ -764,10 +843,15 @@ window.NexBoot = function () {
         if (!tb) return;
         tb.innerHTML = '';
         let sumIn = 0, sumOut = 0, sumInc = 0;
+        const finRows = finFiltered();
+        const finInfo = document.getElementById('fin-filter-info');
+        if (finInfo) finInfo.innerText = 'Periode: ' + finPeriodText() + ' \u2022 Menampilkan ' + finRows.length + ' dari ' + financeDB.length + ' transaksi';
         if (financeDB.length === 0) {
             tb.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 20px;">Belum ada data keuangan. Data masuk otomatis setelah pesanan dikonfirmasi (On Process).</td></tr>`;
+        } else if (finRows.length === 0) {
+            tb.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 20px;">Tidak ada transaksi pada rentang tanggal ini.</td></tr>`;
         }
-        financeDB.forEach((f, i) => {
+        finRows.forEach((f, i) => {
             const inc = finTotalIncome(f);
             sumIn += f.masuk || 0; sumOut += f.keluar || 0; sumInc += inc || 0;
             const pctCell = f.masuk > 0
@@ -794,6 +878,12 @@ window.NexBoot = function () {
             <div class="fin-card inc"><div class="lbl">Total Income (Bagi Hasil)</div><div class="val">${formatRp(sumInc)}</div></div>
             <div class="fin-card"><div class="lbl">Selisih (Masuk - Keluar)</div><div class="val">${sumIn - sumOut < 0 ? '-' : ''}${formatRp(Math.abs(sumIn - sumOut))}</div></div>`;
     };
+
+    bindDateRange('fin-from', 'fin-to', () => renderFinanceTable());
+    const finResetBtn = document.getElementById('fin-reset');
+    if (finResetBtn) finResetBtn.addEventListener('click', () => { resetDateRange('fin-from', 'fin-to'); renderFinanceTable(); });
+    const finDlCsv = document.getElementById('fin-dl-csv'); if (finDlCsv) finDlCsv.addEventListener('click', downloadFinanceCSV);
+    const finDlPdf = document.getElementById('fin-dl-pdf'); if (finDlPdf) finDlPdf.addEventListener('click', downloadFinancePDF);
 
     // Transaksi manual (pengeluaran, hutang, laba, dll)
     const finCat = document.getElementById('fin-m-cat');
@@ -828,14 +918,17 @@ window.NexBoot = function () {
     const byId = (x) => document.getElementById(x);
     const BLN = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
     const fmtDT = (ts) => { if (!ts) return '-'; const d = new Date(ts); return `${pad2(d.getDate())} ${BLN[d.getMonth()]} ${d.getFullYear()}, ${pad2(d.getHours())}:${pad2(d.getMinutes())}`; };
-    const PO_COLOR = { 'Pending': '#ffaa00', 'On Process': '#00f2fe', 'Success': '#34A853' };
-    const PO_LABEL = { 'Pending': 'Menunggu Admin', 'On Process': 'On Process', 'Success': 'Success' };
+    const PO_COLOR = { 'Pending': '#ffaa00', 'On Process': '#00f2fe', 'Success': '#34A853', 'Rejected': '#ff6b8a' };
+    const PO_LABEL = { 'Pending': 'Menunggu Admin', 'On Process': 'On Process', 'Success': 'Success', 'Rejected': 'Ditolak' };
+    // Pending yang sudah diberi alasan oleh Admin tampil sebagai "Pending"; yang baru masuk tetap "Menunggu Admin"
+    const poLabel = (p) => (p.status === 'Pending' && p.holdReason) ? 'Pending' : (PO_LABEL[p.status] || escHtml(p.status));
+    const poIsNew = (p) => p.status === 'Pending' && !p.holdReason;
     const PO_PROC_NOTE = 'Dana akan cair dalam 1x24 jam';
 
     // "BCA 12345678 A/N Nama" -> { bank, no, name }
     function parseRek(s) { const m = String(s || '').match(/^(.*?)\s+(\d+)\s+A\/N\s+(.*)$/i); return m ? { bank: m[1].trim(), no: m[2], name: m[3].trim() } : null; }
     // Saldo Pendapatan = w.balance (total yang masuk). Saldo Tersisa = Saldo Pendapatan - semua pencairan yang sudah diajukan.
-    function pocketReserved(w) { return payoutsDB.filter(p => p.workerId === w.id).reduce((a, p) => a + (p.amount || 0), 0); }
+    function pocketReserved(w) { return payoutsDB.filter(p => p.workerId === w.id && p.status !== 'Rejected').reduce((a, p) => a + (p.amount || 0), 0); }
     function pocketRemaining(w) { return Math.max(0, (w.balance || 0) - pocketReserved(w)); }
     function pocketWorker() { return (currentUser && currentUser.role === 'worker') ? getCurrentRecord() : null; }
     function newPayoutId() { let id; do { id = 'WD-' + Math.floor(100000 + Math.random() * 900000); } while (payoutsDB.some(p => p.id === id)); return id; }
@@ -847,12 +940,13 @@ window.NexBoot = function () {
     function poCardWorker(p) {
         const col = PO_COLOR[p.status] || '#fff';
         let note = '';
-        if (p.status === 'Pending') note = '<div class="pk-note wait">⏳ Permintaan terkirim. Menunggu Admin memproses.</div>';
+        if (p.status === 'Pending') note = p.holdReason ? `<div class="pk-note hold">⏸️ Pencairan ditunda (Pending).<br><b>Alasan:</b> ${escHtml(p.holdReason)}</div>` : '<div class="pk-note wait">⏳ Permintaan terkirim. Menunggu Admin memproses.</div>';
+        if (p.status === 'Rejected') note = `<div class="pk-note rej">❌ Pencairan ditolak. Dana dikembalikan ke Saldo Tersisa Anda.<br><b>Alasan:</b> ${escHtml(p.rejectReason || '-')}</div>`;
         if (p.status === 'On Process') note = `<div class="pk-note proc">⏱️ Pencairan sedang diproses. ${PO_PROC_NOTE}.</div>`;
         if (p.status === 'Success') note = '<div class="pk-note ok">✅ Dana telah ditransfer ke rekening Anda.</div>';
         const proof = p.proofUrl ? `<a class="pk-proof" href="${escHtml(p.proofUrl)}" target="_blank" rel="noopener">🧾 Lihat Bukti Transfer</a>` : '';
         return `<div class="pk-card" style="border-color:${col}55;">
-            <div class="pk-card-top"><div><div class="pk-id">${escHtml(p.id)}</div><div class="pk-amount-big">${formatRp(p.amount)}</div></div><span class="pk-chip" style="color:${col}; border-color:${col};">${PO_LABEL[p.status] || escHtml(p.status)}</span></div>
+            <div class="pk-card-top"><div><div class="pk-id">${escHtml(p.id)}</div><div class="pk-amount-big">${formatRp(p.amount)}</div></div><span class="pk-chip" style="color:${col}; border-color:${col};">${poLabel(p)}</span></div>
             ${note}
             ${poRowW('Rekening Tujuan', escHtml(p.bank) + ' &bull; ' + escHtml(p.accNo) + '<br><small>a.n. ' + escHtml(p.accName) + '</small>')}
             ${poRowW('Waktu Pengajuan', fmtDT(p.requestedAt))}
@@ -869,7 +963,7 @@ window.NexBoot = function () {
         if (!w || !byId('pk-hero')) return;
         const mine = payoutsDB.filter(p => p.workerId === w.id).sort((a, b) => (b.requestedAt || 0) - (a.requestedAt || 0));
         const remaining = pocketRemaining(w);
-        const inProc = mine.filter(p => p.status !== 'Success').reduce((a, p) => a + (p.amount || 0), 0);
+        const inProc = mine.filter(p => p.status !== 'Success' && p.status !== 'Rejected').reduce((a, p) => a + (p.amount || 0), 0);
         const done = mine.filter(p => p.status === 'Success').reduce((a, p) => a + (p.amount || 0), 0);
         byId('pk-hero').innerHTML = `<span>SALDO TERSISA</span><b>${formatRp(remaining)}</b><small>Dapat dicairkan sebagian atau seluruhnya</small>`;
         byId('pk-stats').innerHTML = `<div class="pk-stat"><span>Saldo Pendapatan</span><b>${formatRp(w.balance || 0)}</b></div><div class="pk-stat"><span>Dalam Proses</span><b style="color:#ffaa00;">${formatRp(inProc)}</b></div><div class="pk-stat"><span>Sudah Cair</span><b style="color:#34A853;">${formatRp(done)}</b></div>`;
@@ -941,12 +1035,15 @@ window.NexBoot = function () {
 
     // Pemberitahuan ke Worker saat status pencairan berubah (mis. dari perangkat Admin)
     let poSeen = {};
-    function snapPayoutStatus() { poSeen = {}; payoutsDB.forEach(p => { poSeen[p.id] = p.status; }); }
+    const poSig = (p) => p.status + '|' + (p.holdReason || '');
+    function snapPayoutStatus() { poSeen = {}; payoutsDB.forEach(p => { poSeen[p.id] = poSig(p); }); }
     function notifyPayoutChanges() {
         const w = pocketWorker();
         payoutsDB.forEach(p => {
-            const prev = poSeen[p.id]; poSeen[p.id] = p.status;
-            if (!w || p.workerId !== w.id || prev === undefined || prev === p.status) return;
+            const prev = poSeen[p.id]; const cur = poSig(p); poSeen[p.id] = cur;
+            if (!w || p.workerId !== w.id || prev === undefined || prev === cur) return;
+            if (p.status === 'Pending' && p.holdReason) customAlert('Pencairan <strong>' + escHtml(p.id) + '</strong> (' + formatRp(p.amount) + ') berstatus <strong>Pending</strong>.<br><br><b>Alasan:</b> ' + escHtml(p.holdReason));
+            if (p.status === 'Rejected') customAlert('Pencairan <strong>' + escHtml(p.id) + '</strong> (' + formatRp(p.amount) + ') <strong>ditolak</strong>. Dana dikembalikan ke saldo Anda.<br><br><b>Alasan:</b> ' + escHtml(p.rejectReason || '-'));
             if (p.status === 'On Process') customAlert('Pencairan <strong>' + escHtml(p.id) + '</strong> (' + formatRp(p.amount) + ') sedang diproses. <strong>' + PO_PROC_NOTE + '.</strong>');
             if (p.status === 'Success') customAlert('Pencairan <strong>' + escHtml(p.id) + '</strong> (' + formatRp(p.amount) + ') <strong>berhasil</strong> ditransfer. Bukti transfer tersedia di riwayat Pocket.');
         });
@@ -956,17 +1053,34 @@ window.NexBoot = function () {
     let openPayoutId = null;
     window.updatePayoutBadge = function() {
         const b = byId('payout-badge-notif'); if (!b) return;
-        const n = payoutsDB.filter(p => p.status === 'Pending').length;
+        const n = payoutsDB.filter(poIsNew).length;
         b.innerText = n; b.style.display = n > 0 ? 'flex' : 'none';
     };
+
+    const tsDay = (ts) => { const d = new Date(ts || 0); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+    function poFiltered() {
+        const q = valOf('po-search').trim().toLowerCase(), from = valOf('po-from'), to = valOf('po-to');
+        return payoutsDB.filter(p => {
+            if (q && ![p.workerId, p.workerName, p.id].some(v => String(v || '').toLowerCase().includes(q))) return false;
+            const d = tsDay(p.requestedAt);
+            if (from && d < from) return false;
+            if (to && d > to) return false;
+            return true;
+        });
+    }
 
     window.renderPayoutTable = function() {
         const tb = byId('payout-table-tbody'); if (!tb) return;
         tb.innerHTML = '';
+        const list = poFiltered();
+        const info = byId('po-filter-info');
+        if (info) info.innerText = (valOf('po-search').trim() || valOf('po-from') || valOf('po-to')) ? ('Menampilkan ' + list.length + ' dari ' + payoutsDB.length + ' pengajuan') : '';
         if (!payoutsDB.length) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Belum ada permintaan pencairan.</td></tr>'; return; }
-        const rank = { 'Pending': 0, 'On Process': 1, 'Success': 2 };
-        payoutsDB.slice().sort((a, b) => (rank[a.status] - rank[b.status]) || ((b.requestedAt || 0) - (a.requestedAt || 0))).forEach(p => {
+        if (!list.length) { tb.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px;">Tidak ada pencairan yang cocok dengan pencarian / rentang tanggal.</td></tr>'; return; }
+        const rank = (p) => p.status === 'Pending' ? (p.holdReason ? 0.5 : 0) : ({ 'On Process': 1, 'Success': 2, 'Rejected': 3 }[p.status] ?? 9);
+        list.slice().sort((a, b) => (rank(a) - rank(b)) || ((b.requestedAt || 0) - (a.requestedAt || 0))).forEach(p => {
             const col = PO_COLOR[p.status] || '#fff';
+            const why = p.status === 'Pending' ? p.holdReason : (p.status === 'Rejected' ? p.rejectReason : '');
             const tr = document.createElement('tr'); tr.className = 'data-row';
             tr.addEventListener('click', () => openPayoutDetail(p.id));
             tr.innerHTML = `
@@ -975,11 +1089,14 @@ window.NexBoot = function () {
                 <td data-label="NOMINAL" style="color:#34A853; font-weight:800;">${formatRp(p.amount)}</td>
                 <td data-label="REKENING TUJUAN">${escHtml(p.bank)} ${escHtml(p.accNo)}<br><span style="font-size:0.75rem; color:rgba(255,255,255,0.6);">a.n. ${escHtml(p.accName)}</span></td>
                 <td data-label="DIAJUKAN" style="font-size:0.85rem;">${fmtDT(p.requestedAt)}</td>
-                <td data-label="STATUS"><span style="color:${col}; font-weight:bold;">${PO_LABEL[p.status] || escHtml(p.status)}</span></td>
+                <td data-label="STATUS"><span style="color:${col}; font-weight:bold;">${poLabel(p)}</span>${why ? `<div class="po-reason-txt" style="color:${col};">Alasan: ${escHtml(why)}</div>` : ''}</td>
                 <td data-label="AKSI" style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openPayoutDetail('${p.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus" onclick="event.stopPropagation(); deletePayout('${p.id}')">🗑️</button></td>`;
             tb.appendChild(tr);
         });
     };
+    bindDateRange('po-from', 'po-to', () => renderPayoutTable());
+    const poSearchEl = byId('po-search'); if (poSearchEl) poSearchEl.addEventListener('input', () => renderPayoutTable());
+    const poResetEl = byId('po-reset'); if (poResetEl) poResetEl.addEventListener('click', () => { if (poSearchEl) poSearchEl.value = ''; resetDateRange('po-from', 'po-to'); renderPayoutTable(); });
 
     window.openPayoutDetail = function(id) {
         if (!payoutsDB.find(x => x.id === id)) return;
@@ -1013,8 +1130,10 @@ window.NexBoot = function () {
         h += odRow('Waktu Pengajuan', fmtDT(p.requestedAt));
         h += odRow('Waktu On Process', fmtDT(p.processAt));
         h += odRow('Waktu Success', fmtDT(p.successAt));
+        if (p.status === 'Pending' && p.holdReason) h += odRow('Alasan Pending', `<span style="color:#ffaa00;">${escHtml(p.holdReason)}</span>` + (p.holdAt ? '<br><small style="color:rgba(255,255,255,0.5);">' + fmtDT(p.holdAt) + '</small>' : ''));
+        if (p.status === 'Rejected') h += odRow('Waktu Ditolak', fmtDT(p.rejectAt)) + odRow('Alasan Penolakan', `<span style="color:#ff6b8a;">${escHtml(p.rejectReason || '-')}</span>`);
         if (p.adminId) h += odRow('Diproses oleh', escHtml(p.adminId));
-        h += odRow('Status', `<span style="color:${col};">${PO_LABEL[p.status] || escHtml(p.status)}</span>`);
+        h += odRow('Status', `<span style="color:${col};">${poLabel(p)}</span>`);
 
         if (p.proofUrl) {
             const isImg = /^image\//.test(p.proofMime || '') || /\.(png|jpe?g|webp|gif)(\?|$)/i.test(p.proofUrl);
@@ -1023,14 +1142,21 @@ window.NexBoot = function () {
                         : `<a class="pk-proof" href="${escHtml(p.proofUrl)}" target="_blank" rel="noopener">🧾 Buka Bukti Transfer${p.proofName ? ' (' + escHtml(p.proofName) + ')' : ''}</a>`) + `</div>`;
         }
 
-        if (p.status !== 'Success') {
+        if (p.status !== 'Success' && p.status !== 'Rejected') {
             h += `<div style="margin-top:20px;">
                 <label style="display:block; font-size:0.8rem; color:rgba(255,255,255,0.6); margin-bottom:8px; letter-spacing:1px;">UBAH STATUS PENCAIRAN</label>
                 <select id="po-status-select" class="admin-input" onchange="onPayoutStatusSelect(this.value)" style="margin-bottom:10px;">
-                    <option value="" disabled ${p.status === 'Pending' ? 'selected' : ''}>-- Pilih Status --</option>
+                    <option value="" disabled ${poIsNew(p) ? 'selected' : ''}>-- Pilih Status --</option>
+                    <option value="Pending" ${p.status === 'Pending' && p.holdReason ? 'selected' : ''}>Pending (tunda + alasan)</option>
                     <option value="On Process" ${p.status === 'On Process' ? 'selected' : ''}>On Process</option>
                     <option value="Success" ${p.status === 'Pending' ? 'disabled' : ''}>Success${p.status === 'Pending' ? ' (proses dulu)' : ''}</option>
+                    <option value="Rejected">Ditolak (wajib alasan)</option>
                 </select>
+                <div id="po-box-reason" style="display:none;">
+                    <label id="po-reason-lbl" style="display:block; font-size:0.8rem; color:#ffaa00; margin-bottom:6px; letter-spacing:1px;"></label>
+                    <textarea id="po-reason" class="admin-input" rows="3" maxlength="300" style="resize:vertical; margin-bottom:8px;"></textarea>
+                    <button type="button" id="po-reason-btn" class="btn-futuristic" style="width:100%; padding:10px;" onclick="savePayoutStatus(this.dataset.t)"></button>
+                </div>
                 <div id="po-box-proc" style="display:none;">
                     <div class="pk-note proc" style="margin-bottom:10px;">Worker akan menerima pemberitahuan: ${PO_PROC_NOTE}.</div>
                     <button type="button" class="btn-futuristic" style="width:100%; padding:10px;" onclick="savePayoutStatus('On Process')">SIMPAN ON PROCESS</button>
@@ -1044,6 +1170,8 @@ window.NexBoot = function () {
             </div>`;
         }
         box.innerHTML = h;
+        const sel = byId('po-status-select');
+        if (sel && sel.value) onPayoutStatusSelect(sel.value);
     }
 
     window.onPayoutStatusSelect = function(val) {
@@ -1051,6 +1179,19 @@ window.NexBoot = function () {
         if (!p) return;
         byId('po-box-proc').style.display = (val === 'On Process' && p.status === 'Pending') ? 'block' : 'none';
         byId('po-box-success').style.display = (val === 'Success') ? 'block' : 'none';
+        const rb = byId('po-box-reason'); if (!rb) return;
+        const isR = (val === 'Pending' || val === 'Rejected');
+        rb.style.display = isR ? 'block' : 'none';
+        if (!isR) return;
+        const ta = byId('po-reason'), btn = byId('po-reason-btn'), lbl = byId('po-reason-lbl');
+        const rej = val === 'Rejected';
+        lbl.innerText = rej ? 'ALASAN PENCAIRAN DITOLAK (WAJIB)' : 'ALASAN PENCAIRAN PENDING (WAJIB)';
+        lbl.style.color = rej ? '#ff6b8a' : '#ffaa00';
+        ta.placeholder = rej ? 'Tulis alasan kenapa pencairan ditolak...' : 'Tulis alasan kenapa pencairan di-pending...';
+        btn.innerText = rej ? 'SIMPAN DITOLAK' : 'SIMPAN PENDING';
+        btn.dataset.t = val;
+        btn.style.borderColor = rej ? '#ff6b8a' : '#ffaa00'; btn.style.color = rej ? '#ff6b8a' : '#ffaa00';
+        if (ta.dataset.for !== val) { ta.value = (val === 'Pending' ? (p.holdReason || '') : (p.rejectReason || '')); ta.dataset.for = val; }
     };
 
     window.previewPayoutProof = function(input) {
@@ -1074,8 +1215,24 @@ window.NexBoot = function () {
         };
         if (target === 'On Process') {
             if (p.status !== 'Pending') return;
-            p.status = 'On Process'; p.processAt = Date.now(); p.adminId = adminId || 'ADMIN';
+            p.status = 'On Process'; p.processAt = Date.now(); p.adminId = adminId || 'ADMIN'; delete p.holdReason;
             done('Pencairan <strong>' + escHtml(p.id) + '</strong> diubah ke <strong>On Process</strong>. Worker diberi tahu: ' + PO_PROC_NOTE + '.');
+            return;
+        }
+        if (target === 'Pending' || target === 'Rejected') {
+            if (p.status === 'Success' || p.status === 'Rejected') return;
+            const ta = byId('po-reason');
+            const reason = ((ta && ta.value) || '').trim();
+            if (reason.length < 3) { customAlert('Alasan <strong>wajib diisi</strong> (minimal 3 karakter) sebelum menyimpan status ' + (target === 'Rejected' ? 'Ditolak' : 'Pending') + '.'); return; }
+            if (target === 'Pending') {
+                p.status = 'Pending'; p.holdReason = reason; p.holdAt = Date.now(); p.adminId = p.adminId || adminId || 'ADMIN';
+                done('Pencairan <strong>' + escHtml(p.id) + '</strong> diubah ke <strong>Pending</strong>. Worker diberi tahu beserta alasannya.');
+                return;
+            }
+            customConfirm('Tolak pencairan <strong>' + escHtml(p.id) + '</strong> (' + formatRp(p.amount) + ')? Dana akan dikembalikan ke Saldo Tersisa worker dan status tidak dapat diubah lagi.', () => {
+                p.status = 'Rejected'; p.rejectReason = reason; p.rejectAt = Date.now(); p.adminId = p.adminId || adminId || 'ADMIN';
+                done('Pencairan <strong>' + escHtml(p.id) + '</strong> berstatus <strong>Ditolak</strong>. Worker diberi tahu beserta alasannya.');
+            });
             return;
         }
         if (target === 'Success') {
@@ -1702,11 +1859,13 @@ window.NexBoot = function () {
 
     function setSession(role, id) {
         currentUser = { role: role, id: id };
+        presenceBeat();
         adminAuthed = false;
         try { localStorage.setItem('nex_session', JSON.stringify(currentUser)); } catch (err) {}
         updateUserTrigger();
     }
     function clearSession() {
+        presenceBeat(true);
         currentUser = null; pendingCategory = '';
         try { localStorage.removeItem('nex_session'); } catch (err) {}
         updateUserTrigger(); closeMainCategory();
@@ -2404,6 +2563,7 @@ window.NexBoot = function () {
         const list = $id('admin-chat-list');
         if (!list) return;
         const q = (($id('admin-chat-search') || {}).value || '').trim().toLowerCase();
+        const keepScroll = list.scrollTop;
 
         // lencana belum dibaca per tab
         const wIds = new Set(workersDB.map(x => x.id)), cIds = new Set(customersDB.map(x => x.id));
@@ -2429,10 +2589,36 @@ window.NexBoot = function () {
             const unread = pp.msgs.filter(m => m.from === 'user' && !m.readByAdmin).length;
             const av = renderAvatarHtml(r.avatar, escHtml((r.name || '?').trim().charAt(0).toUpperCase()));
             const pv = pp.last ? escHtml(msgPreview(pp.last)) : '<i style="opacity:0.7;">Belum ada chat - klik untuk memulai</i>';
-            return `<div class="chat-conv ${r.id === activeAdminChatUser ? 'active' : ''} ${unread ? 'has-unread' : ''}" data-uid="${escHtml(r.id)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;"><div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(r.name)}</div><div class="idn">ID Nexora: ${escHtml(r.id)} &bull; ${pp.role}</div><div class="dobl">🎂 ${escHtml(userBirthDate(r) || 'Tanggal lahir belum diisi')}</div><div class="pv">${pv}</div></div>${unread ? `<div class="unread" title="${unread} pesan baru">${badgeNum(unread)}</div>` : ''}</div>`;
+            return `<div class="chat-conv ${r.id === activeAdminChatUser ? 'active' : ''} ${unread ? 'has-unread' : ''}" data-uid="${escHtml(r.id)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;">${isUserOnline(r.id) ? '<span class="online-dot" title="Online"></span>' : ''}<div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(r.name)}</div><div class="idn">ID Nexora: ${escHtml(r.id)} &bull; ${pp.role}</div><div class="dobl">🎂 ${escHtml(userBirthDate(r) || 'Tanggal lahir belum diisi')}</div><div class="pv">${pv}</div></div>${unread ? `<div class="unread" title="${unread} pesan baru">${badgeNum(unread)}</div>` : ''}</div>`;
         }).join('');
         list.querySelectorAll('.chat-conv').forEach(n => n.addEventListener('click', () => openAdminThread(n.dataset.uid)));
+        list.scrollTop = keepScroll;
     };
+    // ----- Status online: user dianggap online jika denyut terakhir < 45 detik -----
+    const ONLINE_MS = 45000;
+    function presenceBeat(off) {
+        if (!currentUser) return;
+        let r = presenceDB.find(x => x.id === currentUser.id);
+        if (!r) { r = { id: currentUser.id, seen: 0 }; presenceDB.push(r); }
+        r.seen = off ? 0 : Date.now();
+    }
+    function isUserOnline(id) {
+        const r = presenceDB.find(x => x.id === id);
+        return !!r && (Date.now() - (r.seen || 0)) < ONLINE_MS;
+    }
+    function refreshThreadOnline() {
+        const el = $id('thread-online'); if (!el) return;
+        const on = activeAdminChatUser && isUserOnline(activeAdminChatUser);
+        el.className = on ? 'on-txt' : ''; el.innerText = on ? '● Online' : '';
+    }
+    presenceBeat();
+    setInterval(() => {
+        if (!document.hidden) presenceBeat();
+        // segarkan titik hijau (juga saat user lain berhenti mengirim denyut)
+        if (viewChat && viewChat.style.display !== 'none') { renderAdminChatList(); refreshThreadOnline(); }
+    }, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) presenceBeat(); });
+    window.addEventListener('pagehide', () => { presenceBeat(true); try { if (window.NexStore) window.NexStore.save(); } catch (err) {} });
     const adminChatSearch = $id('admin-chat-search');
     if (adminChatSearch) adminChatSearch.addEventListener('input', () => renderAdminChatList());
     function renderAdminThreadBody() {
@@ -2444,7 +2630,7 @@ window.NexBoot = function () {
         chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
         const info = chatUserInfo(userId);
         const th = $id('admin-chat-thread');
-        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span><span>🎂 ${escHtml(userBirthDate(chatUserRecord(userId)) || 'Tanggal lahir belum diisi')}</span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
+        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span><span>🎂 ${escHtml(userBirthDate(chatUserRecord(userId)) || 'Tanggal lahir belum diisi')}</span><span id="thread-online"></span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
         th.querySelector('.back-list').addEventListener('click', () => $id('admin-chat-layout').classList.remove('show-thread'));
         th.querySelector('.clear-all').addEventListener('click', () => {
             askDeletePassword('Hapus <strong>semua chat</strong> dengan <strong>' + escHtml(info.name) + '</strong> (' + escHtml(userId) + ')?', () => clearChatFor(userId));
@@ -2456,7 +2642,7 @@ window.NexBoot = function () {
             if (currentUser && currentUser.id === activeAdminChatUser && $id('chat-panel').classList.contains('open')) { markUserRead(); renderUserChat(); }
             updateChatBadges();
         });
-        renderAdminThreadBody(); renderAdminChatList(); updateChatBadges();
+        renderAdminThreadBody(); renderAdminChatList(); updateChatBadges(); refreshThreadOnline();
         try { renderAdminNotifications(); } catch (err) {}
     }
     window.chatWithUser = function(userId) {
@@ -2668,7 +2854,7 @@ window.NexBoot = function () {
             c.innerHTML = `<div><span class="badge chat">NEW CHAT (${unreadMsgs.length})</span><br><strong>${escHtml(cv.name)}</strong><div class="notif-id">ID Nexora: ${escHtml(cv.userId)}</div><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">${escHtml(msgPreview(last))}</div></div><div class="notif-actions"><button type="button" class="btn-acc" style="color:#b388ff; border:1px solid #b388ff;" onclick="openAdminChatFromNotif('${cv.userId}')">Buka Chat</button></div>`;
             if(notifList) notifList.appendChild(c);
         });
-        payoutsDB.filter(p => p.status === 'Pending').forEach(p => {
+        payoutsDB.filter(poIsNew).forEach(p => {
             hasNotif = true;
             const c = document.createElement('div'); c.className = 'notif-card payout-notif';
             c.innerHTML = `<div><span class="badge payout">PENCAIRAN DANA</span><br><strong>${escHtml(p.workerName)}</strong><div class="notif-id">${escHtml(p.workerId)} &bull; ${formatRp(p.amount)}</div><div style="font-size:0.8rem; color:rgba(255,255,255,0.7); margin-top:5px;">Ke: ${escHtml(p.bank)} ${escHtml(p.accNo)} a.n. ${escHtml(p.accName)}</div></div><div><button type="button" class="btn-acc acc" onclick="openPayoutFromNotif('${p.id}')">Proses</button></div>`;
@@ -2927,6 +3113,7 @@ window.NexBoot = function () {
                 if (has('payoutsDB')) notifyPayoutChanges();
                 refreshPocketFields();
             }
+            if (has('presenceDB') && shown(viewChat)) { renderAdminChatList(); refreshThreadOnline(); }
             if (has('chatsDB')) {
                 if (currentUser && $id('chat-panel') && $id('chat-panel').classList.contains('open')) { markUserRead(); renderUserChat(); }
                 if (shown(viewChat)) {

@@ -1,4 +1,4 @@
-/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, calculateLevel, calculateCustomerLevel, formatRp */
+/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, calculateLevel, calculateCustomerLevel, formatRp */
 
 // =========================================
 // DATABASE & LOGIKA LEVELING NEXORA
@@ -53,3 +53,6 @@ let chatsDB = [];
 
 // DATABASE PENCAIRAN DANA WORKER (Pocket): diajukan Worker, diproses Admin
 let payoutsDB = [];
+
+// DATABASE KEHADIRAN (status online user): { id: ID Nexora, seen: waktu terakhir aktif (ms) }
+let presenceDB = [];

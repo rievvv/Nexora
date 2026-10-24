@@ -640,6 +640,13 @@
                         <h2 class="table-title">PENCAIRAN DANA WORKER</h2>
                         <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-payout-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
                     </div>
+                    <div class="rpt-filter" id="po-filter">
+                        <div class="rpt-field rpt-grow"><label for="po-search">Cari ID Worker</label><input type="text" id="po-search" class="admin-input" placeholder="Ketik ID Worker / nama / ID pencairan..." autocomplete="off"></div>
+                        <div class="rpt-field"><label for="po-from">Diajukan Dari</label><input type="date" id="po-from" class="admin-input"></div>
+                        <div class="rpt-field"><label for="po-to">Diajukan Sampai</label><input type="date" id="po-to" class="admin-input"></div>
+                        <div class="rpt-actions"><button type="button" class="btn-futuristic rpt-btn" id="po-reset" style="background:transparent; border-color:rgba(255,255,255,0.3); color:#fff;">RESET</button></div>
+                        <div class="rpt-info" id="po-filter-info"></div>
+                    </div>
                     <div class="data-table-wrapper">
                         <table class="data-table">
                             <thead><tr><th>ID PENCAIRAN</th><th>WORKER</th><th>NOMINAL</th><th>REKENING TUJUAN</th><th>DIAJUKAN</th><th>STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
@@ -681,6 +688,16 @@
                     <div class="fin-summary" id="fin-summary"></div>
                     <div style="margin-bottom: 15px; position: relative; z-index: 100;">
                         <button type="button" class="btn-futuristic" id="btn-fin-add" style="padding: 8px 20px; font-size: 0.85rem;">+ TRANSAKSI MANUAL</button>
+                    </div>
+                    <div class="rpt-filter" id="fin-filter">
+                        <div class="rpt-field"><label for="fin-from">Dari Tanggal</label><input type="date" id="fin-from" class="admin-input"></div>
+                        <div class="rpt-field"><label for="fin-to">Sampai Tanggal</label><input type="date" id="fin-to" class="admin-input"></div>
+                        <div class="rpt-actions">
+                            <button type="button" class="btn-futuristic rpt-btn" id="fin-reset" style="background:transparent; border-color:rgba(255,255,255,0.3); color:#fff;">RESET</button>
+                            <button type="button" class="btn-futuristic rpt-btn" id="fin-dl-csv" style="border-color:#34A853; color:#34A853;">&#11015; DOWNLOAD EXCEL</button>
+                            <button type="button" class="btn-futuristic rpt-btn" id="fin-dl-pdf" style="border-color:#ffaa00; color:#ffaa00;">&#11015; DOWNLOAD PDF</button>
+                        </div>
+                        <div class="rpt-info" id="fin-filter-info"></div>
                     </div>
                     <div class="data-table-wrapper">
                         <table class="data-table fin-table">
