@@ -1976,55 +1976,124 @@ window.NexBoot = function () {
     };
 
     /* =========================================
-       SLIDING BANNER IKLAN
+       SLIDING BANNER IKLAN (loop mulus, tanpa lompatan, ikut geseran jari/mouse)
        ========================================= */
-    let bannerIdx = 0, bannerTimer = null;
-    function goBanner(i) {
+    let bannerIdx = 0, bannerPos = 0, bannerTimer = null, bannerBusy = false, bannerSig = '', bannerDrag = null;
+    const BANNER_MS = 900, BANNER_EASE = 'cubic-bezier(0.65, 0.05, 0.36, 1)';
+    function bannerTrack() { return document.getElementById('banner-track'); }
+    function setBannerDots() { document.querySelectorAll('#banner-dots .banner-dot').forEach((d, k) => d.classList.toggle('active', k === bannerIdx)); }
+    function bannerSet(pos, animate, extraPx) {
+        const track = bannerTrack(); if (!track) return;
+        track.style.transition = animate ? `transform ${BANNER_MS}ms ${BANNER_EASE}` : 'none';
+        track.style.transform = extraPx ? `translate3d(calc(${-pos * 100}% + ${extraPx}px),0,0)` : `translate3d(${-pos * 100}%,0,0)`;
+    }
+    function bannerMove(dir) {            // dir: +1 maju, -1 mundur
+        const n = bannersDB.length; if (n < 2 || bannerBusy) return;
+        const track = bannerTrack(); if (!track) return;
+        bannerBusy = true;
+        if (dir > 0) {
+            bannerPos = bannerPos + 1;
+            bannerIdx = bannerPos % n;
+        } else {
+            if (bannerPos === 0) { bannerPos = n; bannerSet(n, false); void track.offsetWidth; }  // lompat tak terlihat ke klon
+            bannerPos -= 1; bannerIdx = bannerPos % n;
+        }
+        setBannerDots();
+        bannerSet(bannerPos, true);
+        clearTimeout(bannerMove._t);
+        bannerMove._t = setTimeout(bannerSettle, BANNER_MS + 80);
+    }
+    function bannerSettle() {
+        const n = bannersDB.length, track = bannerTrack();
+        if (!track || !bannerBusy && bannerPos < n) return;
+        if (bannerPos >= n) { bannerPos = 0; bannerSet(0, false); void track.offsetWidth; }
+        bannerBusy = false;
+    }
+    function goBanner(i) {                // lompat langsung ke banner ke-i (titik navigasi)
         const n = bannersDB.length; if (!n) return;
-        bannerIdx = ((i % n) + n) % n;
-        const track = document.getElementById('banner-track');
-        if (track) track.style.transform = `translateX(-${bannerIdx * 100}%)`;
-        document.querySelectorAll('#banner-dots .banner-dot').forEach((d, k) => d.classList.toggle('active', k === bannerIdx));
+        i = ((i % n) + n) % n;
+        if (i === bannerIdx && !bannerBusy) return;
+        bannerIdx = i; bannerPos = i; bannerBusy = true; setBannerDots();
+        bannerSet(i, true);
+        clearTimeout(bannerMove._t);
+        bannerMove._t = setTimeout(() => { bannerBusy = false; }, BANNER_MS + 80);
     }
     function startBannerTimer() {
         clearInterval(bannerTimer);
-        if (bannersDB.length > 1) bannerTimer = setInterval(() => goBanner(bannerIdx + 1), 4500);
+        if (bannersDB.length > 1) bannerTimer = setInterval(() => { if (!document.hidden && !bannerDrag) bannerMove(1); }, 5000);
     }
     window.renderBanners = function() {
-        const track = document.getElementById('banner-track'), dots = document.getElementById('banner-dots');
+        const track = bannerTrack(), dots = document.getElementById('banner-dots');
         const prev = document.getElementById('banner-prev'), next = document.getElementById('banner-next');
         if (!track) return;
-        clearInterval(bannerTimer);
+        const sig = JSON.stringify(bannersDB.map(b => [b.id, b.imgUrl, b.link]));
+        if (sig === bannerSig && track.children.length) return;      // tidak berubah -> jangan render ulang (mencegah patah saat sinkron)
+        bannerSig = sig;
+        clearInterval(bannerTimer); clearTimeout(bannerMove._t); bannerBusy = false;
         if (!bannersDB.length) {
-            track.style.transform = 'none';
+            bannerIdx = 0; bannerPos = 0;
+            track.style.transition = 'none'; track.style.transform = 'none';
             track.innerHTML = `<div class="banner-slide banner-empty"><div>📢 SLOT IKLAN<small>Ruang banner promosi &bull; rekomendasi 1200 x 400 px</small></div></div>`;
             dots.innerHTML = ''; prev.style.display = 'none'; next.style.display = 'none';
             return;
         }
-        track.innerHTML = bannersDB.map(b => b.link
-            ? `<a class="banner-slide" href="${escHtml(b.link)}" target="_blank" rel="noopener"><img src="${b.imgUrl}" alt="Iklan" draggable="false"></a>`
-            : `<div class="banner-slide"><img src="${b.imgUrl}" alt="Iklan" draggable="false"></div>`).join('');
+        const slide = (b, eager) => b.link
+            ? `<a class="banner-slide" href="${escHtml(b.link)}" target="_blank" rel="noopener"><img src="${b.imgUrl}" alt="Iklan" draggable="false" decoding="async"${eager ? '' : ' loading="eager"'}></a>`
+            : `<div class="banner-slide"><img src="${b.imgUrl}" alt="Iklan" draggable="false" decoding="async"${eager ? '' : ' loading="eager"'}></div>`;
         const multi = bannersDB.length > 1;
+        track.innerHTML = bannersDB.map(b => slide(b)).join('') + (multi ? slide(bannersDB[0]) : '');   // klon slide pertama di ujung
+        bannersDB.forEach(b => { const im = new Image(); im.src = b.imgUrl; });                          // pra-muat
         prev.style.display = multi ? 'flex' : 'none'; next.style.display = multi ? 'flex' : 'none';
         dots.innerHTML = multi ? bannersDB.map((b, k) => `<button type="button" class="banner-dot" aria-label="Banner ${k + 1}"></button>`).join('') : '';
         dots.querySelectorAll('.banner-dot').forEach((d, k) => d.addEventListener('click', () => { goBanner(k); startBannerTimer(); }));
-        goBanner(Math.min(bannerIdx, bannersDB.length - 1));
+        bannerIdx = Math.min(bannerIdx, bannersDB.length - 1); bannerPos = bannerIdx;
+        bannerSet(bannerPos, false); setBannerDots();
         startBannerTimer();
     };
     (function initBannerControls() {
         const slider = document.getElementById('banner-slider');
         if (!slider) return;
-        document.getElementById('banner-prev').addEventListener('click', () => { goBanner(bannerIdx - 1); startBannerTimer(); });
-        document.getElementById('banner-next').addEventListener('click', () => { goBanner(bannerIdx + 1); startBannerTimer(); });
+        document.getElementById('banner-prev').addEventListener('click', () => { bannerMove(-1); startBannerTimer(); });
+        document.getElementById('banner-next').addEventListener('click', () => { bannerMove(1); startBannerTimer(); });
         slider.addEventListener('mouseenter', () => clearInterval(bannerTimer));
         slider.addEventListener('mouseleave', startBannerTimer);
-        let sx = 0;
-        slider.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; clearInterval(bannerTimer); }, { passive: true });
-        slider.addEventListener('touchend', (e) => {
-            const dx = e.changedTouches[0].clientX - sx;
-            if (Math.abs(dx) > 40) goBanner(bannerIdx + (dx < 0 ? 1 : -1));
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) startBannerTimer(); });
+        // geser mengikuti jari / mouse
+        let sx = 0, sy = 0, dx = 0, locked = '', t0 = 0;
+        slider.addEventListener('pointerdown', (e) => {
+            if (bannersDB.length < 2 || bannerBusy || e.target.closest('.banner-nav, .banner-dot')) return;
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            bannerDrag = true; sx = e.clientX; sy = e.clientY; dx = 0; locked = ''; t0 = Date.now(); clearInterval(bannerTimer);
+        });
+        slider.addEventListener('pointermove', (e) => {
+            if (!bannerDrag) return;
+            const mx = e.clientX - sx, my = e.clientY - sy;
+            if (!locked) { if (Math.abs(mx) < 6 && Math.abs(my) < 6) return; locked = Math.abs(mx) > Math.abs(my) ? 'x' : 'y'; if (locked === 'x') { try { slider.setPointerCapture(e.pointerId); } catch (er) {} } }
+            if (locked !== 'x') return;
+            dx = mx;
+            let pos = bannerPos; const n = bannersDB.length;
+            if (pos === 0 && dx > 0) { pos = n; bannerSet(n, false); bannerPos = n; }   // tarik ke kanan dari awal -> pakai klon
+            bannerSet(bannerPos, false, dx);
+        });
+        const end = () => {
+            if (!bannerDrag) return;
+            const moved = locked === 'x', w = slider.clientWidth || 1, fast = Math.abs(dx) / Math.max(1, Date.now() - t0) > 0.4;
+            bannerDrag = null;
+            if (moved) {
+                const n = bannersDB.length;
+                let dir = 0; if (Math.abs(dx) > w * 0.18 || (fast && Math.abs(dx) > 20)) dir = dx < 0 ? 1 : -1;
+                const track = bannerTrack();
+                // posisi saat ini (bannerPos) dengan offset dx -> animasikan ke target
+                bannerBusy = true;
+                const target = bannerPos + dir;
+                bannerPos = Math.max(0, Math.min(n, target)); bannerIdx = bannerPos % n; setBannerDots();
+                bannerSet(bannerPos, true);
+                clearTimeout(bannerMove._t); bannerMove._t = setTimeout(bannerSettle, BANNER_MS + 80);
+                slider.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); }, { capture: true, once: true });   // cegah klik link setelah geser
+            }
             startBannerTimer();
-        }, { passive: true });
+        };
+        slider.addEventListener('pointerup', end); slider.addEventListener('pointercancel', end);
     })();
 
     window.renderAdminBanners = function() {
@@ -2067,6 +2136,19 @@ window.NexBoot = function () {
         const m = chatsDB.find(x => x.userId === userId);
         return { name: m ? m.userName : userId, role: m ? m.userRole : '' };
     }
+    const MON_ID = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    function userBirthDate(rec) {
+        if (!rec) return '';
+        let raw = rec.dob || '';
+        if (!raw && rec.ttl) { const p = String(rec.ttl).split(','); raw = p.length > 1 ? p[p.length - 1] : p[0]; }
+        raw = String(raw || '').trim();
+        const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (iso) return parseInt(iso[3], 10) + ' ' + MON_ID[parseInt(iso[2], 10) - 1] + ' ' + iso[1];
+        return raw;
+    }
+    const badgeNum = (n) => n > 99 ? '99+' : String(n);
+    function unreadFromUser(userId) { return chatsDB.filter(m => m.userId === userId && m.from === 'user' && !m.readByAdmin).length; }
+    function chatDot(id) { const n = unreadFromUser(id); return n ? `<span class="row-dot">${badgeNum(n)}</span>` : ''; }
     function msgPreview(m) {
         if (m.type === 'text') return m.text;
         if (m.type === 'image') return '🖼️ Foto';
@@ -2242,16 +2324,23 @@ window.NexBoot = function () {
         renderChatMessages($id('chat-user-body'), chatsDB.filter(m => m.userId === currentUser.id), 'user');
     }
     function updateChatBadges() {
-        const fb = $id('chat-fab-badge');
+        const fb = $id('chat-fab-badge'), fab = $id('chat-fab');
         if (fb) {
             const n = currentUser ? chatsDB.filter(m => m.userId === currentUser.id && m.from === 'admin' && !m.readByUser).length : 0;
-            fb.innerText = n; fb.style.display = n > 0 ? 'flex' : 'none';
+            fb.innerText = badgeNum(n); fb.style.display = n > 0 ? 'flex' : 'none';
+            if (fab) fab.classList.toggle('has-unread', n > 0);
         }
-        const ab = $id('chat-badge-notif');
+        const ab = $id('chat-badge-notif'), card = $id('btn-menu-chat');
         if (ab) {
             const t = chatsDB.filter(m => m.from === 'user' && !m.readByAdmin).length;
-            ab.innerText = t; ab.style.display = t > 0 ? 'flex' : 'none';
+            ab.innerText = badgeNum(t); ab.style.display = t > 0 ? 'flex' : 'none';
+            if (card) card.classList.toggle('has-unread', t > 0);
         }
+        try {   // segarkan ikon pesan di tabel Data Worker / Customer bila sedang terbuka
+            const vw = $id('admin-data-worker-view'), vc = $id('admin-data-customer-view');
+            if (vw && vw.style.display !== 'none') renderWorkerTable();
+            if (vc && vc.style.display !== 'none') renderCustomerTable();
+        } catch (err) {}
     }
     function updateChatWidget(pageId) {
         const fab = $id('chat-fab'), panel = $id('chat-panel');
@@ -2296,12 +2385,12 @@ window.NexBoot = function () {
     if (chatCloseEl) chatCloseEl.addEventListener('click', () => $id('chat-panel').classList.remove('open'));
 
     // ----- Sisi admin -----
-    let adminChatTab = 'worker';
+    let adminChatTab = 'all';
     function syncAdminChatTabs() {
-        ['worker', 'customer'].forEach(t => { const b = $id('achat-tab-' + t); if (b) b.classList.toggle('active', adminChatTab === t); });
+        ['all', 'worker', 'customer'].forEach(t => { const b = $id('achat-tab-' + t); if (b) b.classList.toggle('active', adminChatTab === t); });
     }
     window.switchAdminChatTab = function(t) {
-        adminChatTab = t === 'customer' ? 'customer' : 'worker';
+        adminChatTab = t === 'customer' ? 'customer' : (t === 'all' ? 'all' : 'worker');
         syncAdminChatTabs();
         renderAdminChatList();
     };
@@ -2314,31 +2403,33 @@ window.NexBoot = function () {
     window.renderAdminChatList = function() {
         const list = $id('admin-chat-list');
         if (!list) return;
-        const isW = adminChatTab === 'worker';
         const q = (($id('admin-chat-search') || {}).value || '').trim().toLowerCase();
 
         // lencana belum dibaca per tab
         const wIds = new Set(workersDB.map(x => x.id)), cIds = new Set(customersDB.map(x => x.id));
         let uw = 0, uc = 0;
         chatsDB.forEach(m => { if (m.from === 'user' && !m.readByAdmin) { if (wIds.has(m.userId)) uw++; else if (cIds.has(m.userId)) uc++; } });
-        [['worker', uw], ['customer', uc]].forEach(([t, n]) => { const bd = $id('achat-badge-' + t); if (bd) { bd.innerText = n; bd.style.display = n > 0 ? 'inline-flex' : 'none'; } });
+        [['all', uw + uc], ['worker', uw], ['customer', uc]].forEach(([t, n]) => { const bd = $id('achat-badge-' + t); if (bd) { bd.innerText = badgeNum(n); bd.style.display = n > 0 ? 'inline-flex' : 'none'; } });
         syncAdminChatTabs();
 
         const byUser = {};
         chatsDB.forEach(m => { (byUser[m.userId] = byUser[m.userId] || []).push(m); });
-        const people = (isW ? workersDB : customersDB)
-            .filter(r => !['Waiting', 'Declined'].includes(r.status))
-            .filter(r => !q || [r.name, r.id, r.business, r.nickname].some(v => String(v || '').toLowerCase().includes(q)))
-            .map(r => { const msgs = byUser[r.id] || []; return { rec: r, msgs: msgs, last: msgs[msgs.length - 1] || null }; })
+        const pool = []
+            .concat(adminChatTab !== 'customer' ? workersDB.map(r => ({ r: r, role: 'Worker' })) : [])
+            .concat(adminChatTab !== 'worker' ? customersDB.map(r => ({ r: r, role: 'Customer' })) : []);
+        const people = pool
+            .filter(x => x.r.status !== 'Declined')
+            .filter(x => !q || [x.r.name, x.r.id, x.r.business, x.r.nickname, userBirthDate(x.r)].some(v => String(v || '').toLowerCase().includes(q)))
+            .map(x => { const msgs = byUser[x.r.id] || []; return { rec: x.r, role: x.role, msgs: msgs, last: msgs[msgs.length - 1] || null }; })
             .sort((a, b) => (b.last ? b.last.ts : 0) - (a.last ? a.last.ts : 0) || String(a.rec.name).localeCompare(String(b.rec.name)));
 
-        if (!people.length) { list.innerHTML = '<div class="chat-empty">' + (q ? 'Tidak ada hasil pencarian.' : (isW ? 'Belum ada worker terdaftar.' : 'Belum ada customer terdaftar.')) + '</div>'; return; }
+        if (!people.length) { list.innerHTML = '<div class="chat-empty">' + (q ? 'Tidak ada hasil pencarian.' : 'Belum ada user terdaftar.') + '</div>'; return; }
         list.innerHTML = people.map(pp => {
             const r = pp.rec;
             const unread = pp.msgs.filter(m => m.from === 'user' && !m.readByAdmin).length;
             const av = renderAvatarHtml(r.avatar, escHtml((r.name || '?').trim().charAt(0).toUpperCase()));
             const pv = pp.last ? escHtml(msgPreview(pp.last)) : '<i style="opacity:0.7;">Belum ada chat - klik untuk memulai</i>';
-            return `<div class="chat-conv ${r.id === activeAdminChatUser ? 'active' : ''}" data-uid="${escHtml(r.id)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;"><div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(r.name)}</div><div class="idn">${escHtml(r.id)} &bull; ${isW ? 'Worker' : 'Customer'}</div><div class="pv">${pv}</div></div>${unread ? `<div class="unread">${unread}</div>` : ''}</div>`;
+            return `<div class="chat-conv ${r.id === activeAdminChatUser ? 'active' : ''} ${unread ? 'has-unread' : ''}" data-uid="${escHtml(r.id)}"><div class="avatar-wrapper" style="width:40px; height:40px; flex:0 0 40px;"><div class="avatar-o" style="font-size:1rem;">${av}</div></div><div class="info"><div class="nm">${escHtml(r.name)}</div><div class="idn">ID Nexora: ${escHtml(r.id)} &bull; ${pp.role}</div><div class="dobl">🎂 ${escHtml(userBirthDate(r) || 'Tanggal lahir belum diisi')}</div><div class="pv">${pv}</div></div>${unread ? `<div class="unread" title="${unread} pesan baru">${badgeNum(unread)}</div>` : ''}</div>`;
         }).join('');
         list.querySelectorAll('.chat-conv').forEach(n => n.addEventListener('click', () => openAdminThread(n.dataset.uid)));
     };
@@ -2350,11 +2441,10 @@ window.NexBoot = function () {
     }
     function openAdminThread(userId) {
         activeAdminChatUser = userId;
-        adminChatTab = customersDB.some(x => x.id === userId) ? 'customer' : 'worker';
         chatsDB.forEach(m => { if (m.userId === userId && m.from === 'user') m.readByAdmin = true; });
         const info = chatUserInfo(userId);
         const th = $id('admin-chat-thread');
-        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
+        th.innerHTML = `<div class="chat-head"><div style="display:flex; align-items:center;"><button type="button" class="back-list" aria-label="Kembali ke daftar">&larr;</button><div><strong>${escHtml(info.name)}</strong><span>ID Nexora: ${escHtml(userId)} &bull; ${escHtml(info.role)}</span><span>🎂 ${escHtml(userBirthDate(chatUserRecord(userId)) || 'Tanggal lahir belum diisi')}</span></div></div><button type="button" class="clear-all" title="Hapus semua chat" aria-label="Hapus semua chat">⚙️</button></div><div class="chat-body" id="admin-chat-body"></div><div id="admin-chat-composer"></div>`;
         th.querySelector('.back-list').addEventListener('click', () => $id('admin-chat-layout').classList.remove('show-thread'));
         th.querySelector('.clear-all').addEventListener('click', () => {
             askDeletePassword('Hapus <strong>semua chat</strong> dengan <strong>' + escHtml(info.name) + '</strong> (' + escHtml(userId) + ')?', () => clearChatFor(userId));
@@ -2369,6 +2459,10 @@ window.NexBoot = function () {
         renderAdminThreadBody(); renderAdminChatList(); updateChatBadges();
         try { renderAdminNotifications(); } catch (err) {}
     }
+    window.chatWithUser = function(userId) {
+        try { pushNav({ page: 'page-3', adm: 'chat', cat: '' }); } catch (err) {}
+        openAdminChatFromNotif(userId);
+    };
     window.openAdminChatFromNotif = function(userId) {
         showAdminSub('chat');
         openAdminThread(userId);
@@ -2631,7 +2725,7 @@ window.NexBoot = function () {
             const avatarHtml = renderAvatarHtml(w.avatar, "O");
             const orderTag = (w.status === 'On Progress' && w.orderId) ? `<br><span style="font-size:0.75rem; color:#00f2fe; font-weight:700;">ID Pesanan: ${escHtml(w.orderId)}</span>` : '';
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="openWorkerDoc('${w.id}')">📄</button><button type="button" class="btn-action-sm btn-del" title="Hapus Worker" onclick="deleteWorker('${w.id}')">🗑️</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${w.id}')">💬${chatDot(w.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openWorkerDoc('${w.id}')">📄</button><button type="button" class="btn-action-sm btn-del" title="Hapus Worker" onclick="deleteWorker('${w.id}')">🗑️</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -2655,7 +2749,7 @@ window.NexBoot = function () {
             const tr = document.createElement('tr'); tr.className = "data-row";
             const avatarHtml = renderAvatarHtml(c.avatar, "C");
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Customer" onclick="deleteCustomer('${c.id}')">🗑️</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${c.id}')">💬${chatDot(c.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Customer" onclick="deleteCustomer('${c.id}')">🗑️</button></td>`;
             tbodyCust.appendChild(tr);
         });
     };

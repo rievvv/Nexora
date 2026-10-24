@@ -611,7 +611,7 @@
                         <div class="admin-card" id="btn-menu-content"><div class="icon">🎬</div><h3>Management Konten</h3><p>Upload & Pin Video Katalog.</p></div>
                         <div class="admin-card" id="btn-menu-finance"><div class="icon">💰</div><h3>Laporan Keuangan</h3><p>Pemasukan, pengeluaran, bagi hasil & total income.</p></div>
                         <div class="admin-card" id="btn-menu-payout"><div class="icon">💸</div><h3>Pencairan Dana</h3><p>Proses permintaan pencairan Pocket Worker & upload bukti transfer.</p><div id="payout-badge-notif" style="position: absolute; top: 15px; right: 15px; background: #ff0055; color: #fff; border-radius: 50%; width: 25px; height: 25px; display: none; justify-content: center; align-items: center; font-size: 0.75rem; font-weight: bold;">0</div></div>
-                        <div class="admin-card" id="btn-menu-chat"><div class="icon">💬</div><h3>Chat User</h3><p>Balas pesan dari Customer & Worker.</p><div id="chat-badge-notif" style="position: absolute; top: 15px; right: 15px; background: #ff0055; color: #fff; border-radius: 50%; width: 25px; height: 25px; display: none; justify-content: center; align-items: center; font-size: 0.75rem; font-weight: bold;">0</div></div>
+                        <div class="admin-card" id="btn-menu-chat"><div class="icon">💬</div><h3>Chat User</h3><p>Balas pesan dari Customer & Worker.</p><div id="chat-badge-notif" class="notif-badge" style="display: none;">0</div></div>
                     </div>
                 </div>
                 <div class="admin-swipe-instruction">GESER UNTUK MELIHAT MENU ADMIN</div>
@@ -659,8 +659,9 @@
                     <div class="admin-chat-layout" id="admin-chat-layout">
                         <div class="admin-chat-side">
                             <div class="admin-chat-tabs">
-                                <button type="button" class="admin-tab active" id="achat-tab-worker" onclick="switchAdminChatTab('worker')">🧑‍💻 Chat Worker <span class="tab-badge" id="achat-badge-worker" style="display:none;"></span></button>
-                                <button type="button" class="admin-tab" id="achat-tab-customer" onclick="switchAdminChatTab('customer')">🛒 Chat Customer <span class="tab-badge" id="achat-badge-customer" style="display:none;"></span></button>
+                                <button type="button" class="admin-tab active" id="achat-tab-all" onclick="switchAdminChatTab('all')">👥 Semua <span class="tab-badge" id="achat-badge-all" style="display:none;"></span></button>
+                                <button type="button" class="admin-tab" id="achat-tab-worker" onclick="switchAdminChatTab('worker')">🧑‍💻 Worker <span class="tab-badge" id="achat-badge-worker" style="display:none;"></span></button>
+                                <button type="button" class="admin-tab" id="achat-tab-customer" onclick="switchAdminChatTab('customer')">🛒 Customer <span class="tab-badge" id="achat-badge-customer" style="display:none;"></span></button>
                             </div>
                             <input type="text" id="admin-chat-search" class="admin-input" placeholder="Cari nama / ID Nexora..." autocomplete="off">
                             <div class="admin-chat-list" id="admin-chat-list"></div>

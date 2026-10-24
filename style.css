@@ -383,7 +383,7 @@ body.is-transitioning .ambient-glow, body.is-transitioning .cyber-grid, body.is-
    ========================================= */
 .banner-section { width: 90%; max-width: 1200px; margin: 50px auto 0 auto; position: relative; z-index: 2; }
 .banner-slider { position: relative; width: 100%; aspect-ratio: 3 / 1; border-radius: 24px; overflow: hidden; border: 1px solid rgba(0,242,254,0.3); box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(0,242,254,0.1); background: rgba(11,17,32,0.6); touch-action: pan-y; }
-.banner-track { display: flex; height: 100%; transition: transform 0.7s cubic-bezier(0.45, 0, 0.2, 1); will-change: transform; }
+.banner-track { display: flex; height: 100%; will-change: transform; transform: translate3d(0,0,0); backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 .banner-slide { flex: 0 0 100%; width: 100%; height: 100%; display: block; position: relative; }
 .banner-slide img { width: 100%; height: 100%; object-fit: cover; display: block; user-select: none; -webkit-user-drag: none; }
 .banner-slide.banner-empty { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: rgba(255,255,255,0.75); letter-spacing: 3px; font-weight: 800; border: 2px dashed rgba(0,242,254,0.35); border-radius: 24px; background: repeating-linear-gradient(45deg, rgba(0,242,254,0.03), rgba(0,242,254,0.03) 14px, transparent 14px, transparent 28px); }
@@ -793,3 +793,23 @@ html[data-lang="ar"] .lang-menu li { direction: rtl; }
 .card.active, .admin-card.active { cursor: pointer; }
 .admin-trigger.unlocked { color: #00f2fe; filter: drop-shadow(0 0 8px rgba(0,242,254,0.7)); }
 .admin-trigger svg { width: 100%; height: 100%; }
+
+/* ===== Lencana pesan baru: titik merah + angka ===== */
+@keyframes nexPulse { 0% { box-shadow: 0 0 0 0 rgba(255,0,85,0.7); } 70% { box-shadow: 0 0 0 9px rgba(255,0,85,0); } 100% { box-shadow: 0 0 0 0 rgba(255,0,85,0); } }
+.notif-badge, .chat-fab-badge, .chat-conv .unread, .tab-badge, .row-dot {
+    background: #ff0055; color: #fff; font-weight: 800; border: 2px solid #0b1120; box-sizing: border-box;
+    min-width: 22px; height: 22px; padding: 0 6px; border-radius: 11px; font-size: 0.7rem; line-height: 1;
+    align-items: center; justify-content: center; animation: nexPulse 1.8s infinite; font-variant-numeric: tabular-nums;
+}
+.notif-badge { position: absolute; top: 14px; right: 14px; display: none; z-index: 5; min-width: 26px; height: 26px; font-size: 0.78rem; }
+.admin-card.has-unread { border-color: rgba(255,0,85,0.7) !important; }
+.chat-fab.has-unread { border-color: #ff0055; box-shadow: 0 0 22px rgba(255,0,85,0.55); }
+.chat-fab-badge { top: -6px; right: -6px; }
+.chat-conv.has-unread .nm { color: #fff; } .chat-conv.has-unread { background: rgba(255,0,85,0.07); }
+.chat-conv .dobl { font-size: 0.68rem; color: rgba(255,255,255,0.6); margin: 1px 0; }
+.chat-head span + span { display: block; }
+.btn-chat { position: relative; border-color: #00ff88; color: #00ff88; background: rgba(0,255,136,0.1); }
+.btn-chat:hover { background: #00ff88; color: #0b1120; transform: scale(1.1); }
+.row-dot { position: absolute; top: -8px; right: -8px; min-width: 18px; height: 18px; font-size: 0.6rem; padding: 0 4px; border-radius: 9px; display: inline-flex; }
+.admin-chat-tabs .admin-tab { padding-left: 4px; padding-right: 4px; }
+.admin-chat-tabs .admin-tab { min-width: 0; flex: 1 1 0; }
