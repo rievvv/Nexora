@@ -257,6 +257,7 @@ window.NexBoot = function () {
             adminAuthed = true;
             if (currentUser) clearSession();
             updateAuthIcons();
+            setTimeout(runLoyalty, 600);
             adminId = (user === 'admin') ? 'NEX-ADMIN' : user;
             document.getElementById('login-error-admin').style.display = 'none';
             document.getElementById('admin-modal').classList.remove('active'); 
@@ -324,6 +325,7 @@ window.NexBoot = function () {
        REVISI 4, 5 & 6: PESANAN HANYA MASUK SAAT KLIK WA, DEADLINE & DROPDOWN STATUS
        ========================================= */
     let currentActiveOrder = null;
+    let payCtx = null;
 
     window.buyProduct = function(id, opt) {
         opt = opt || {};
@@ -366,13 +368,9 @@ window.NexBoot = function () {
                 requestedWorkerName: reqW ? reqW.name : ''
             };
 
-            document.getElementById('qris-unique-amount').innerText = formatRp(finalPrice);
-
-            // REVISI 5: Format pesan konfirmasi WhatsApp
-            let waMsg = `*Konfirmasi Pembelian*%0ANama Produk : ${orderName}${extraWa}%0ANomimal Transfer : ${formatRp(finalPrice)}%0ABank Transfer : BCA%0AAtas Nama : Arief Gunawan`;
-            
+            payCtx = { p: p, orderName: orderName, extraWa: extraWa, basePrice: basePrice, uniqueCode: uniqueCode, kind: JASA_CATEGORIES.includes(p.category) ? 'PJ' : 'PE', vid: '' };
             const waBtn = document.getElementById('btn-wa-order-confirm');
-            waBtn.href = `https://wa.me/6285123532296?text=${waMsg}`;
+            applyPay(opt.voucherVid || '');
             
             // REVISI 4: Pesanan HANYA masuk ke database admin ketika Customer klik Tombol Konfirmasi WhatsApp
             waBtn.onclick = function() {
@@ -380,6 +378,11 @@ window.NexBoot = function () {
                     // Cek agar tidak duplikat jika diklik berkali-kali
                     let exists = ordersDB.some(o => o.id === currentActiveOrder.id);
                     if (!exists) {
+                        if (currentActiveOrder.voucherVid) {   // kunci voucher untuk pesanan ini
+                            const bo = voucherOwner(), vv = bo && activeVouchers(bo, payCtx && payCtx.kind).find(x => x.vid === currentActiveOrder.voucherVid);
+                            if (!vv) { customAlert('Voucher sudah tidak tersedia / kadaluarsa. Silakan pilih voucher lain.'); applyPay(''); return false; }
+                            vv.usedBy = currentActiveOrder.id; vv.usedAt = Date.now();
+                        }
                         ordersDB.unshift(currentActiveOrder);
                         updateOrderBadge();
                         // Hubungkan admin dengan pemesan: pesan otomatis masuk ke chat
@@ -395,6 +398,60 @@ window.NexBoot = function () {
 
             document.getElementById('payment-modal').classList.add('active');
         }
+    }
+
+    // Hitung ulang total (voucher, kode unik), kotak QRIS, dan pesan WhatsApp
+    function applyPay(vid) {
+        if (!payCtx || !currentActiveOrder) return;
+        const owner = voucherOwner();
+        const v = (vid && owner) ? activeVouchers(owner, payCtx.kind).find(x => x.vid === vid) : null;
+        const disc = v ? Math.min(v.amount, payCtx.basePrice) : 0;
+        const o = currentActiveOrder;
+        payCtx.vid = v ? v.vid : '';
+        o.nominal = payCtx.basePrice - disc + payCtx.uniqueCode;
+        o.voucherVid = v ? v.vid : ''; o.voucherCode = v ? v.code : ''; o.voucherAmount = disc; o.voucherKind = v ? v.kind : '';
+        document.getElementById('qris-unique-amount').innerText = formatRp(o.nominal);
+        const vLine = v ? '%0AVoucher : ' + encodeURIComponent(v.code) + ' (-' + formatRp(disc) + ')' : '';
+        const waMsg = `*Konfirmasi Pembelian*%0ANama Produk : ${payCtx.orderName}${payCtx.extraWa}${vLine}%0ANomimal Transfer : ${formatRp(o.nominal)}%0ABank Transfer : BCA%0AAtas Nama : Arief Gunawan`;
+        document.getElementById('btn-wa-order-confirm').href = `https://wa.me/6285123532296?text=${waMsg}`;
+        renderPayVoucher('');
+    }
+    function renderPayVoucher(msg, ok) {
+        const box = document.getElementById('pay-voucher'); if (!box) return;
+        const owner = voucherOwner();
+        if (!payCtx || !owner) { box.innerHTML = ''; return; }
+        const o = currentActiveOrder, avail = activeVouchers(owner, payCtx.kind);
+        const applied = o && o.voucherVid ? avail.find(x => x.vid === o.voucherVid) : null;
+        let h = `<div class="pv-box"><div class="pv-head">🎟️ VOUCHER ${payCtx.kind} <small>(${V_LABEL[payCtx.kind]})</small></div>`;
+        if (applied) {
+            h += `<div class="pv-applied"><div><b>${escHtml(applied.code)}</b><small>Potongan ${formatRp(o.voucherAmount)} • s/d ${fmtShort(applied.expires)}</small></div><button type="button" data-pv="clear">LEPAS</button></div>`;
+            if (applied.amount > payCtx.basePrice) h += `<div class="pv-msg warn">Nilai voucher melebihi harga produk; selisih ${formatRp(applied.amount - payCtx.basePrice)} tidak dikembalikan.</div>`;
+        } else if (avail.length) {
+            h += `<div class="pv-row"><select id="pv-select"><option value="">Pilih voucher (${avail.length} tersedia)</option>${avail.map(v => `<option value="${escHtml(v.vid)}">${escHtml(v.code)} • ${formatRp(v.amount)} • s/d ${fmtShort(v.expires)}</option>`).join('')}</select></div>`;
+        }
+        if (!applied) h += `<div class="pv-row"><input type="text" id="pv-code" placeholder="Klaim kode voucher (cth: ${payCtx.kind}${escHtml(String(owner.id).replace(/^NEXC-/, ''))}-50000)" autocomplete="off"><button type="button" data-pv="claim">KLAIM</button></div>`;
+        if (msg) h += `<div class="pv-msg ${ok ? 'ok' : 'err'}">${msg}</div>`;
+        h += `<div class="pv-sum"><span>Harga produk</span><b>${formatRp(payCtx.basePrice)}</b></div>`;
+        if (o && o.voucherAmount) h += `<div class="pv-sum disc"><span>Voucher</span><b>- ${formatRp(o.voucherAmount)}</b></div>`;
+        h += `<div class="pv-sum"><span>Kode unik</span><b>+ ${payCtx.uniqueCode}</b></div></div>`;
+        box.innerHTML = h;
+    }
+    const payVoucherBox = document.getElementById('pay-voucher');
+    if (payVoucherBox) {
+        payVoucherBox.addEventListener('change', (e) => { if (e.target && e.target.id === 'pv-select' && e.target.value) applyPay(e.target.value); });
+        payVoucherBox.addEventListener('click', (e) => {
+            const b = e.target.closest && e.target.closest('[data-pv]'); if (!b || !payCtx) return;
+            if (b.dataset.pv === 'clear') { applyPay(''); return; }
+            const owner = voucherOwner(), code = ((document.getElementById('pv-code') || {}).value || '').trim().toLowerCase();
+            if (!code) { renderPayVoucher('Masukkan kode voucher terlebih dahulu.', false); return; }
+            const hit = (owner && owner.vouchers || []).filter(v => String(v.code).toLowerCase() === code);
+            if (!hit.length) { renderPayVoucher('Kode voucher tidak ditemukan di Kantong Voucher Anda.', false); return; }
+            const act = hit.find(v => vState(v) === 'active');
+            if (!act) { renderPayVoucher(vState(hit[0]) === 'used' ? 'Voucher ini sudah terpakai.' : 'Voucher ini sudah kadaluarsa.', false); return; }
+            if (act.kind !== payCtx.kind) { renderPayVoucher('Voucher ' + act.kind + ' hanya berlaku untuk ' + V_LABEL[act.kind].toLowerCase() + ', bukan untuk produk ini.', false); return; }
+            applyPay(act.vid);
+            renderPayVoucher('Voucher berhasil diklaim & dipakai.', true);
+        });
     }
 
     /* ---------- Helper tanggal & teks aman ---------- */
@@ -521,6 +578,7 @@ window.NexBoot = function () {
         if (o.requestedWorkerId && !hasWorker) html += odRow('Worker Pilihan Customer', escHtml(o.requestedWorkerName || '') + ' <span style="font-size:0.75rem; color:rgba(255,255,255,0.5);">(' + escHtml(o.requestedWorkerId) + ')</span>');
         if (o.customerName) html += odRow('Pemesan', escHtml(o.customerName) + ' <span style="font-size:0.75rem; color:rgba(255,255,255,0.5);">(' + escHtml(o.customerId) + ')</span>');
         html += odRow('Nominal', formatRp(o.nominal));
+        if (o.voucherCode) html += odRow('Voucher Dipakai', `<span style="color:#34A853;">${escHtml(o.voucherCode)}</span> <span style="font-size:0.75rem; color:rgba(255,255,255,0.6);">(- ${formatRp(o.voucherAmount || 0)} dari harga ${formatRp(o.baseNominal || 0)})</span>`);
         html += odRow('Tanggal Mulai', fmtDate(o.startDate));
 
         if (o.status === 'Complete') {
@@ -727,6 +785,7 @@ window.NexBoot = function () {
         o.financeId = row.id;
         const buyer = findBuyer(o);
         if (buyer) buyer.spent = (buyer.spent || 0) + o.nominal;
+        if (buyer && !isJasa) buyer.spentPE = (buyer.spentPE || 0) + o.nominal;   // dasar voucher PE
     }
 
     // Dipanggil saat pesanan Complete: worker bebas lagi + upah worker tercatat sebagai uang keluar
@@ -760,7 +819,8 @@ window.NexBoot = function () {
         workersDB.forEach(w => {
             if (w._baseBalance === undefined) { w._baseBalance = w.balance || 0; w._baseIncome = w.income || 0; }
             const earned = financeDB.filter(f => f.kind === 'upah' && f.workerId === w.id).reduce((a, f) => a + (f.keluar || 0), 0);
-            w.balance = w._baseBalance + earned;
+            const bonus = financeDB.filter(f => f.kind === 'bonus' && f.workerId === w.id).reduce((a, f) => a + (f.keluar || 0), 0);
+            w.balance = w._baseBalance + earned + bonus;   // bonus level masuk Pocket, tidak menambah EXP
             w.income = w._baseIncome + earned;
         });
     }
@@ -786,7 +846,7 @@ window.NexBoot = function () {
             if (f.kind === 'pemasukan' && f.orderId) {
                 const o = ordersDB.find(x => x.id === f.orderId);
                 const buyer = o ? findBuyer(o) : null;
-                if (buyer) buyer.spent = Math.max(0, (buyer.spent || 0) - (f.masuk || 0));
+                if (buyer) { buyer.spent = Math.max(0, (buyer.spent || 0) - (f.masuk || 0)); if (!JASA_CATEGORIES.includes(o.category)) buyer.spentPE = Math.max(0, (buyer.spentPE || 0) - (f.masuk || 0)); }
                 if (o) delete o.financeId;
             }
             if (f.kind === 'upah' && f.orderId) {
@@ -1774,7 +1834,7 @@ window.NexBoot = function () {
     window.openProductDetail = function(id) {
         const p = productsDB.find(x => x.id === id);
         if (!p) return;
-        pdState = { id: id, pkg: productPackages(p).length ? 0 : -1, wid: '', open: false };
+        pdState = { id: id, pkg: productPackages(p).length ? 0 : -1, wid: '', open: false, vid: '' };
         renderProductDetail();
         document.getElementById('product-detail-modal').classList.add('active');
     };
@@ -1809,7 +1869,18 @@ window.NexBoot = function () {
             const sel = ws.find(w => w.id === pdState.wid) || null;
             h += `<div class="pd-section">Pilih Worker</div><div class="pd-wdd ${pdState.open ? 'open' : ''}" id="pd-wdd"><div class="pd-wsel" id="pd-wsel">${sel ? workerOptHtml(sel, false, true) : anyWorkerHtml(false, true)}<span class="pd-caret">▾</span></div><div class="pd-wlist">${anyWorkerHtml(!sel)}${ws.map(w => workerOptHtml(w, sel && sel.id === w.id)).join('')}${ws.length ? '' : '<div class="pd-wempty">Belum ada worker yang tersedia saat ini. Admin akan menentukan worker untuk Anda.</div>'}</div></div>`;
         }
-        if (unit > 0) h += `<div class="pd-total"><span>Total (sebelum kode unik)</span><b>${formatRp(unit)}</b></div>`;
+        let vDisc = 0;
+        const vOwner = voucherOwner();
+        if (vOwner && !p.link && !sold) {
+            const vk = isJasa ? 'PJ' : 'PE', vs = activeVouchers(vOwner, vk);
+            if (vs.length) {
+                if (pdState.vid && !vs.some(x => x.vid === pdState.vid)) pdState.vid = '';
+                const cv = vs.find(x => x.vid === pdState.vid);
+                if (cv) vDisc = Math.min(cv.amount, unit || 0);
+                h += `<div class="pd-section">Voucher ${vk} <span style="text-transform:none; letter-spacing:0; color:rgba(255,255,255,0.45);">(${vs.length} tersedia)</span></div><div class="pd-vcs"><div class="pd-vc ${pdState.vid ? '' : 'sel'}" data-vid=""><b>Tanpa voucher</b></div>${vs.map(v => `<div class="pd-vc ${v.vid === pdState.vid ? 'sel' : ''}" data-vid="${escHtml(v.vid)}"><div><b>${escHtml(v.code)}</b><small>Berlaku s/d ${fmtShort(v.expires)}</small></div><span>- ${formatRp(v.amount)}</span></div>`).join('')}</div>`;
+            }
+        }
+        if (unit > 0) h += `<div class="pd-total"><span>Total (sebelum kode unik)${vDisc ? ' • voucher - ' + formatRp(vDisc) : ''}</span><b>${formatRp(unit - vDisc)}</b></div>`;
         h += `<button type="button" class="btn-futuristic" id="pd-order" ${sold ? 'disabled' : ''} style="width:100%; margin-top:18px;">${sold ? 'SOLD OUT' : (p.link ? 'BUKA LINK PEMBELIAN' : 'LANJUT KE PEMBAYARAN')}</button>`;
         box.innerHTML = h;
     }
@@ -1820,11 +1891,13 @@ window.NexBoot = function () {
         const pkg = t.closest('.pd-pkg');
         if (pkg) { pdState.pkg = parseInt(pkg.dataset.pkg, 10); renderProductDetail(); return; }
         if (t.closest('#pd-wsel')) { pdState.open = !pdState.open; document.getElementById('pd-wdd').classList.toggle('open', pdState.open); return; }
+        const vcEl = t.closest('.pd-vc');
+        if (vcEl) { pdState.vid = vcEl.dataset.vid || ''; renderProductDetail(); return; }
         const wo = t.closest('.pd-wopt[data-wid]');
         if (wo) { pdState.wid = wo.dataset.wid; pdState.open = false; renderProductDetail(); return; }
         if (t.closest('#pd-order')) {
             const id = pdState.id;
-            const opt = { pkgIdx: pdState.pkg >= 0 ? pdState.pkg : null, workerId: pdState.wid || '' };
+            const opt = { pkgIdx: pdState.pkg >= 0 ? pdState.pkg : null, workerId: pdState.wid || '', voucherVid: pdState.vid || '' };
             closeProductDetail();
             buyProduct(id, opt);
         }
@@ -1932,6 +2005,7 @@ window.NexBoot = function () {
         adminAuthed = false;
         try { localStorage.setItem('nex_session', JSON.stringify(currentUser)); } catch (err) {}
         updateUserTrigger();
+        setTimeout(runLoyalty, 400);
     }
     function clearSession() {
         presenceBeat(true);
@@ -1996,6 +2070,172 @@ window.NexBoot = function () {
         return null;
     }
 
+    /* =========================================
+       LOYALTY: BONUS LEVEL WORKER (tahunan) & VOUCHER LEVEL CUSTOMER (bulanan)
+       Jadwal mengikuti TANGGAL DAFTAR (joined): worker tiap tahun, customer tiap bulan.
+       ========================================= */
+    const MON_IDX = { jan: 0, feb: 1, mar: 2, apr: 3, mei: 4, may: 4, jun: 5, jul: 6, agu: 7, ags: 7, aug: 7, sep: 8, okt: 9, oct: 9, nov: 10, des: 11, dec: 11 };
+    function parseJoinedDate(str) {
+        const s = String(str || '').trim(); let m;
+        if ((m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/))) return { y: +m[1], mo: +m[2] - 1, d: +m[3] };
+        if ((m = s.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})/))) return { d: +m[1], mo: +m[2] - 1, y: +m[3] };
+        if ((m = s.match(/^(\d{1,2})\s+([A-Za-z]+)\.?\s+(\d{4})/))) { const mo = MON_IDX[m[2].slice(0, 3).toLowerCase()]; if (mo !== undefined) return { d: +m[1], mo: mo, y: +m[3] }; }
+        return null;
+    }
+    // tanggal yang sama di n bulan berikutnya (bila bulan tujuan lebih pendek, dipakai hari terakhir bulan itu)
+    function addMonthsClamped(y, mo, d, n) {
+        const t = new Date(y, mo + n, 1), last = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+        return new Date(t.getFullYear(), t.getMonth(), Math.min(d, last));
+    }
+    function startOfToday() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+    function isoDate(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+    function fmtDateObj(d) { return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    function daysUntil(d) { return Math.round((d - startOfToday()) / 86400000); }
+    function countPassed(j, step) { const t = startOfToday(); let n = 0; while (n < 1200 && addMonthsClamped(j.y, j.mo, j.d, step * (n + 1)) <= t) n++; return n; }
+    const pctOf = (txt) => (parseFloat(txt) || 0) / 100;
+
+    /* --- Worker: bonus = persen level x pendapatan worker selama 12 bulan siklus --- */
+    function workerBonusInfo(w) {
+        const j = parseJoinedDate(w.joined); if (!j) return null;
+        const passed = (w.bonusYears !== undefined) ? w.bonusYears : countPassed(j, 12);
+        const k = passed + 1;
+        const start = passed === 0 ? new Date(j.y, j.mo, j.d) : addMonthsClamped(j.y, j.mo, j.d, 12 * passed);
+        const due = addMonthsClamped(j.y, j.mo, j.d, 12 * k);
+        const a = isoDate(start), b = isoDate(due);
+        let earned = financeDB.filter(f => f.kind === 'upah' && f.workerId === w.id && String(f.date) >= a && String(f.date) < b).reduce((x, f) => x + (f.keluar || 0), 0);
+        if (passed === 0) earned += (w._baseIncome !== undefined ? w._baseIncome : (w.income || 0));
+        const lvl = calculateLevel(w.income || 0), pct = pctOf(lvl.bonus);
+        return { k: k, start: start, due: due, earned: earned, lvl: lvl, pct: pct, est: Math.floor(earned * pct), days: daysUntil(due) };
+    }
+    function processWorkerBonuses(onlyId) {
+        const t = startOfToday(); let changed = false;
+        workersDB.forEach(w => {
+            if (onlyId && w.id !== onlyId) return;
+            if (!['Worker', 'On Progress'].includes(w.status)) return;
+            const j = parseJoinedDate(w.joined); if (!j) return;
+            if (w.bonusYears === undefined) { w.bonusYears = countPassed(j, 12); changed = true; }   // tanpa bonus retroaktif
+            let guard = 0;
+            while (guard++ < 10) {
+                const info = workerBonusInfo(w);
+                if (!info || info.due > t) break;
+                if (info.est > 0) {
+                    const row = { id: newFinanceId('20'), code: '20', kind: 'bonus', date: isoDate(info.due), productName: `Bonus Level ${info.lvl.name} ${info.lvl.bonus} - tahun ke-${info.k}`, ref: w.id, orderId: '', workerId: w.id, masuk: 0, keluar: info.est, base: 0, pct: null };
+                    financeDB.push(row);
+                    (w.bonusLog = w.bonusLog || []).push({ k: info.k, date: info.due.getTime(), paidAt: Date.now(), amount: info.est, pct: info.lvl.bonus, level: info.lvl.name, fin: row.id });
+                }
+                w.bonusYears = info.k; changed = true;
+            }
+        });
+        if (changed) { syncWorkerEarnings(); try { renderWorkerTable(); if (typeof renderFinanceTable === 'function') renderFinanceTable(); } catch (e) {} }
+        return changed;
+    }
+
+    /* --- Customer: voucher = persen diskon level x belanja siklus bulan itu (PJ = jasa, PE = elektronik) --- */
+    function custVoucherInfo(c) {
+        const j = parseJoinedDate(c.joined); if (!j) return null;
+        const passed = (c.vMonths !== undefined) ? c.vMonths : countPassed(j, 1);
+        const due = addMonthsClamped(j.y, j.mo, j.d, passed + 1);
+        const spentPE = c.spentPE || 0, spentPJ = Math.max(0, (c.spent || 0) - spentPE);
+        const cycPJ = Math.max(0, spentPJ - (c.vBasePJ || 0)), cycPE = Math.max(0, spentPE - (c.vBasePE || 0));
+        const lvl = calculateCustomerLevel(c.spent || 0), pct = pctOf(lvl.discount);
+        return { n: passed + 1, due: due, cycPJ: cycPJ, cycPE: cycPE, spentPJ: spentPJ, spentPE: spentPE, lvl: lvl, pct: pct, estPJ: Math.floor(cycPJ * pct), estPE: Math.floor(cycPE * pct), days: daysUntil(due) };
+    }
+    function newVoucher(c, kind, amount, issued) {
+        const exp = addMonthsClamped(issued.getFullYear(), issued.getMonth(), issued.getDate(), 12); exp.setHours(23, 59, 59, 999);
+        return { vid: 'V' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), code: kind + String(c.id).replace(/^NEXC-/, '') + '-' + amount, kind: kind, amount: amount, issued: issued.getTime(), expires: exp.getTime(), usedBy: '', usedAt: 0 };
+    }
+    function processCustomerVouchers(onlyId) {
+        const t = startOfToday(); let changed = false;
+        customersDB.forEach(c => {
+            if (onlyId && c.id !== onlyId) return;
+            if (['Waiting', 'Declined', 'Cancelled'].includes(c.status)) return;
+            const j = parseJoinedDate(c.joined); if (!j) return;
+            if (c.vMonths === undefined) { c.vMonths = countPassed(j, 1); c.vBasePJ = 0; c.vBasePE = 0; changed = true; }   // tanpa voucher retroaktif
+            let guard = 0;
+            while (guard++ < 24) {
+                const info = custVoucherInfo(c);
+                if (!info || info.due > t) break;
+                c.vouchers = Array.isArray(c.vouchers) ? c.vouchers : [];
+                if (info.estPJ > 0) c.vouchers.push(newVoucher(c, 'PJ', info.estPJ, info.due));
+                if (info.estPE > 0) c.vouchers.push(newVoucher(c, 'PE', info.estPE, info.due));
+                c.vBasePJ = info.spentPJ; c.vBasePE = info.spentPE; c.vMonths = info.n; changed = true;
+            }
+        });
+        return changed;
+    }
+    function runLoyalty() {
+        let ch = false;
+        try {
+            if (adminAuthed) { const a = processWorkerBonuses(); const b = processCustomerVouchers(); ch = a || b; }
+            else if (currentUser) ch = currentUser.role === 'worker' ? processWorkerBonuses(currentUser.id) : processCustomerVouchers(currentUser.id);
+        } catch (e) {}
+        if (ch) { try { refreshLevelProg(); } catch (e) {} }
+    }
+
+    const V_LABEL = { PJ: 'Produk Jasa', PE: 'Produk Elektronik' };
+    const fmtShort = (ts) => new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+    function vState(v) { return v.usedBy ? 'used' : (v.expires < Date.now() ? 'expired' : 'active'); }
+    function activeVouchers(c, kind) { return (c && Array.isArray(c.vouchers) ? c.vouchers : []).filter(v => vState(v) === 'active' && (!kind || v.kind === kind)).sort((a, b) => a.expires - b.expires); }
+    function voucherOwner() { return (currentUser && currentUser.role === 'customer') ? (customersDB.find(c => c.id === currentUser.id) || null) : null; }
+    function releaseVoucher(o) {
+        if (!o || !o.voucherVid || o.financeId) return;
+        const c = customersDB.find(x => x.id === o.customerId);
+        const v = c && (c.vouchers || []).find(x => x.vid === o.voucherVid && x.usedBy === o.id);
+        if (v) { v.usedBy = ''; v.usedAt = 0; }
+    }
+
+    function bonusEstimateHtml(w) {
+        const i = workerBonusInfo(w);
+        if (!i) return '<div class="bn-card"><div class="bn-note">Tanggal daftar belum terbaca, bonus belum dapat dihitung.</div></div>';
+        const hist = (w.bonusLog || []).slice().reverse().slice(0, 5).map(b => `<div class="bn-h"><span>🎁 Tahun ke-${b.k} • ${escHtml(b.level)} ${escHtml(b.pct)}</span><b>+${formatRp(b.amount)}</b><small>${fmtShort(b.date)}</small></div>`).join('');
+        return `<div class="bn-card">
+            <div class="bn-top"><span>${levelIcon(i.lvl, 24)} ${escHtml(i.lvl.name)} • Bonus ${escHtml(i.lvl.bonus)}</span><span class="bn-days">${i.days > 0 ? 'H-' + i.days : (i.days === 0 ? 'HARI INI' : 'Segera')}</span></div>
+            <div class="bn-amt">${formatRp(i.est)}</div>
+            <div class="bn-note">Estimasi bonus yang cair <b>otomatis ke Pocket</b> pada <b>${fmtDateObj(i.due)}</b> (tanggal daftar Anda di tahun berikutnya).</div>
+            <div class="bn-row"><span>Pendapatan siklus ini (${fmtShort(i.start.getTime())} - ${fmtShort(i.due.getTime())})</span><b>${formatRp(i.earned)}</b></div>
+            <div class="bn-row"><span>Persentase bonus level saat ini</span><b>${escHtml(i.lvl.bonus)}</b></div>
+            <div class="bn-foot">Perhitungan: bonus level x pendapatan siklus. Naik level sebelum tanggal cair = persentase lebih besar.</div>
+            ${hist ? '<div class="bn-hist">' + hist + '</div>' : ''}
+        </div>`;
+    }
+    function voucherEstimateHtml(c) {
+        const i = custVoucherInfo(c);
+        if (!i) return '<div class="bn-card"><div class="bn-note">Tanggal daftar belum terbaca, voucher belum dapat dihitung.</div></div>';
+        const line = (kind, est, cyc) => `<div class="bn-row"><span><b class="vk ${kind}">${kind}</b> ${V_LABEL[kind]} • belanja siklus ${formatRp(cyc)}</span><b>${formatRp(est)}</b></div>`;
+        return `<div class="bn-card cust">
+            <div class="bn-top"><span>${levelIcon(i.lvl, 24)} ${escHtml(i.lvl.name)} • Diskon ${escHtml(i.lvl.discount)}</span><span class="bn-days">${i.days > 0 ? 'H-' + i.days : (i.days === 0 ? 'HARI INI' : 'Segera')}</span></div>
+            <div class="bn-note">Estimasi voucher potongan yang terbit <b>otomatis</b> pada <b>${fmtDateObj(i.due)}</b> dan berlaku <b>1 tahun</b> sejak diterbitkan.</div>
+            ${line('PJ', i.estPJ, i.cycPJ)}${line('PE', i.estPE, i.cycPE)}
+            <div class="bn-foot">Voucher = diskon level x total belanja siklus bulan ini. PJ hanya untuk produk jasa, PE hanya untuk produk elektronik.</div>
+        </div>`;
+    }
+    function voucherCardHtml(v) {
+        const s = vState(v);
+        const stTxt = s === 'active' ? 'AKTIF' : (s === 'used' ? 'TERPAKAI' : 'KADALUARSA');
+        return `<div class="vc-card ${v.kind} ${s}"><div class="vc-top"><b>${v.kind}</b><span>${V_LABEL[v.kind]}</span><em>${stTxt}</em></div>
+            <div class="vc-amt">${formatRp(v.amount)}</div>
+            <div class="vc-code" title="Klik untuk menyalin kode" onclick="copyToClipboard('${escHtml(v.code)}')">${escHtml(v.code)}</div>
+            <div class="vc-exp">${s === 'used' ? 'Dipakai di pesanan ' + escHtml(v.usedBy) : 'Terbit ' + fmtShort(v.issued) + ' • berlaku s/d ' + fmtShort(v.expires)}</div></div>`;
+    }
+    function voucherBagHtml(c) {
+        const list = (Array.isArray(c.vouchers) ? c.vouchers : []).slice().sort((a, b) => {
+            const ra = vState(a) === 'active' ? 0 : 1, rb = vState(b) === 'active' ? 0 : 1;
+            return ra - rb || (ra === 0 ? a.expires - b.expires : b.issued - a.issued);
+        });
+        return list.length ? `<div class="vc-grid">${list.map(voucherCardHtml).join('')}</div>` : '<div class="vc-empty">🎟️ Kantong voucher masih kosong. Voucher terbit otomatis tiap bulan sesuai level & belanja Anda.</div>';
+    }
+    function refreshLoyaltyUI() {
+        if (!currentUser) return;
+        const rec = getCurrentRecord(); if (!rec) return;
+        if (currentUser.role === 'worker') {
+            const el = document.getElementById('dash-w-bonus');
+            if (el) el.innerHTML = '<label>🎁 Estimasi Bonus Level</label>' + bonusEstimateHtml(rec);
+        } else {
+            const el = document.getElementById('dash-c-voucher');
+            if (el) el.innerHTML = '<label>🎟️ Estimasi Voucher Level</label>' + voucherEstimateHtml(rec) + '<label style="margin-top:16px; display:block;">👜 Kantong Voucher</label>' + voucherBagHtml(rec);
+        }
+    }
+
     // Progres EXP menuju level berikutnya (Worker: total pendapatan, Customer: total belanja)
     function levelProgressHtml(isW, value) {
         value = value || 0;
@@ -2017,6 +2257,7 @@ window.NexBoot = function () {
         const isW = currentUser.role === 'worker';
         const el = document.getElementById(isW ? 'dash-w-levelprog' : 'dash-c-levelprog');
         if (el) el.innerHTML = '<label>Progres Level (EXP)</label>' + levelProgressHtml(isW, isW ? rec.income : rec.spent);
+        refreshLoyaltyUI();
         const m = document.getElementById('user-profile-modal');
         if (m && m.classList.contains('active')) renderUserProfile();
     }
@@ -2150,6 +2391,7 @@ window.NexBoot = function () {
             ordersDB.filter(o => o.workerId === rec.id).slice(0, 10).forEach(o => acts.push({ ic: '🛠️', t: 'Mengerjakan ' + o.productName, s: `${o.id} • ${o.status}` }));
             financeDB.filter(f => f.kind === 'upah' && f.workerId === rec.id && f.keluar > 0).slice(0, 10).forEach(f => acts.push({ ic: '💰', t: 'Pendapatan: ' + f.productName.replace('Upah Worker - ', ''), s: '+' + formatRp(f.keluar) + ' (setelah bagi hasil)' }));
         }
+        if (isW) (rec.bonusLog || []).slice(-5).reverse().forEach(b => acts.push({ ic: '🎁', t: 'Bonus Level ' + b.level + ' tahun ke-' + b.k, s: '+' + formatRp(b.amount) + ' masuk ke Pocket' }));
         if (rec.joined) acts.push({ ic: '🎉', t: 'Bergabung di Nexora', s: rec.joined });
         const actHtml = acts.map(a => `<div class="up-act-item"><div class="ic">${a.ic}</div><div><div class="t">${escHtml(a.t)}</div><div class="s">${escHtml(a.s)}</div></div></div>`).join('');
 
@@ -2157,6 +2399,9 @@ window.NexBoot = function () {
             <div class="up-stat-grid">${stats}</div>
             <div class="profile-label" style="margin-bottom:5px;">Progres Level (EXP)</div>
             ${levelProgressHtml(isW, isW ? (rec.income || 0) : (rec.spent || 0))}
+            <div class="profile-label" style="margin:14px 0 5px;">${isW ? '🎁 Estimasi Bonus Level' : '🎟️ Estimasi Voucher Level'}</div>
+            ${isW ? bonusEstimateHtml(rec) : voucherEstimateHtml(rec)}
+            ${isW ? '' : '<div class="profile-label" style="margin:14px 0 5px;">👜 Kantong Voucher</div>' + voucherBagHtml(rec)}
             <div class="profile-label" style="margin-bottom:5px; margin-top:14px;">Aktivitas</div>
             <div class="up-activity">${actHtml || '<div style="color:rgba(255,255,255,0.5); font-size:0.85rem; padding:10px 0;">Belum ada aktivitas.</div>'}</div>`;
     }
@@ -3176,7 +3421,8 @@ window.NexBoot = function () {
     window.deleteOrder = function(id) {
         const o = ordersDB.find(x => x.id === id);
         if (!o) return;
-        askDeletePassword('Hapus pesanan <strong>' + escHtml(o.id) + '</strong> (' + escHtml(o.productName) + ') beserta catatan keuangannya?', () => {
+        askDeletePassword('Hapus pesanan <strong>' + escHtml(o.id) + '</strong> (' + escHtml(o.productName) + ') beserta catatan keuangannya?' + (o.voucherCode ? (o.financeId ? '<br><span style="font-size:0.8rem; color:#ffaa00;">Voucher ' + escHtml(o.voucherCode) + ' sudah terpakai pada pesanan yang dikonfirmasi.</span>' : '<br><span style="font-size:0.8rem; color:#34A853;">Voucher ' + escHtml(o.voucherCode) + ' akan dikembalikan ke customer.</span>') : ''), () => {
+            releaseVoucher(o);
             purgeFinanceRows(financeDB.filter(f => f.orderId === id || f.id === o.financeId || f.id === o.payrollId));
             ordersDB = ordersDB.filter(x => x.id !== id);
             if (o.workerId && o.workerId !== '-') refreshWorkerStatus(o.workerId);
@@ -3295,6 +3541,10 @@ window.NexBoot = function () {
     try { history.replaceState({ nex: 1, idx: 0, page: 'page-1', cat: '', adm: '' }, '', location.pathname + location.search); } catch (err) {}
 
     // Dipanggil persist.js saat data dari perangkat lain masuk -> segarkan tampilan yang relevan
+    // Bonus level worker & voucher customer: cek saat dibuka, lalu tiap 10 menit
+    setTimeout(runLoyalty, 1500);
+    setInterval(runLoyalty, 600000);
+
     window.NexRefresh = function(cols) {
         const has = (c) => !cols || cols.indexOf(c) > -1;
         const shown = (el) => el && el.style.display !== 'none';

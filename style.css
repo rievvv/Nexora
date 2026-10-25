@@ -1006,3 +1006,58 @@ input.has-lvl-ico { background-repeat: no-repeat !important; background-position
 .ud-cell.full { grid-column: 1 / -1; } .ud-cell label { display: block; font-size: 0.66rem; letter-spacing: 1px; text-transform: uppercase; color: rgba(255,255,255,0.5); margin-bottom: 2px; }
 .ud-cell .v { color: #fff; font-size: 0.9rem; line-height: 1.45; word-break: break-word; white-space: pre-wrap; } .ud-empty { color: rgba(255,255,255,0.35); }
 @media (max-width: 640px) { .ud-grid, .ud-stats { grid-template-columns: 1fr; } .ud-head { gap: 12px; } }
+
+/* ================= Bonus level worker, voucher customer, Kantong Voucher ================= */
+.bn-card { background: linear-gradient(145deg, rgba(0,242,254,0.08), rgba(255,0,85,0.06)); border: 1px solid rgba(0,242,254,0.3); border-radius: 14px; padding: 14px 16px; text-align: left; }
+.bn-card.cust { border-color: rgba(255,170,0,0.4); background: linear-gradient(145deg, rgba(255,170,0,0.09), rgba(0,242,254,0.05)); }
+.bn-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-weight: 800; font-size: 0.85rem; color: #fff; }
+.bn-top > span:first-child { display: inline-flex; align-items: center; gap: 6px; }
+.bn-days { background: rgba(255,170,0,0.15); border: 1px solid rgba(255,170,0,0.5); color: #ffaa00; border-radius: 10px; padding: 2px 10px; font-size: 0.72rem; white-space: nowrap; }
+.bn-amt { font-size: 1.7rem; font-weight: 800; color: #34A853; margin: 6px 0 2px; text-shadow: 0 0 14px rgba(52,168,83,0.35); }
+.bn-note { font-size: 0.8rem; color: rgba(255,255,255,0.8); line-height: 1.5; margin: 6px 0; }
+.bn-note b { color: #00f2fe; }
+.bn-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 0.78rem; color: rgba(255,255,255,0.75); padding: 6px 0; border-top: 1px dashed rgba(255,255,255,0.12); }
+.bn-row b { color: #fff; white-space: nowrap; }
+.bn-foot { font-size: 0.7rem; color: rgba(255,255,255,0.5); margin-top: 6px; line-height: 1.4; }
+.bn-hist { margin-top: 10px; border-top: 1px solid rgba(255,255,255,0.12); padding-top: 8px; }
+.bn-h { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 0.75rem; color: rgba(255,255,255,0.8); padding: 3px 0; }
+.bn-h b { color: #34A853; } .bn-h small { color: rgba(255,255,255,0.45); }
+.vk { display: inline-block; font-size: 0.65rem; border-radius: 6px; padding: 1px 6px; letter-spacing: 1px; }
+.vk.PJ, .vc-card.PJ .vc-top b { background: rgba(0,242,254,0.18); color: #00f2fe; border: 1px solid rgba(0,242,254,0.5); }
+.vk.PE, .vc-card.PE .vc-top b { background: rgba(255,0,85,0.15); color: #ff6b8a; border: 1px solid rgba(255,0,85,0.5); }
+
+.vc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin-top: 8px; }
+.vc-card { position: relative; border-radius: 14px; padding: 12px 14px; background: rgba(11,17,32,0.9); border: 1px solid rgba(255,255,255,0.15); overflow: hidden; text-align: left; }
+.vc-card::before, .vc-card::after { content: ''; position: absolute; top: 50%; width: 14px; height: 14px; border-radius: 50%; background: #070b14; transform: translateY(-50%); }
+.vc-card::before { left: -7px; } .vc-card::after { right: -7px; }
+.vc-card.PJ.active { border-color: rgba(0,242,254,0.55); box-shadow: 0 0 16px rgba(0,242,254,0.15); }
+.vc-card.PE.active { border-color: rgba(255,0,85,0.55); box-shadow: 0 0 16px rgba(255,0,85,0.15); }
+.vc-card.used, .vc-card.expired { opacity: 0.5; filter: grayscale(0.7); }
+.vc-top { display: flex; align-items: center; gap: 8px; font-size: 0.72rem; color: rgba(255,255,255,0.7); }
+.vc-top b { border-radius: 6px; padding: 1px 8px; font-size: 0.8rem; letter-spacing: 1px; }
+.vc-top em { margin-left: auto; font-style: normal; font-size: 0.62rem; font-weight: 800; color: #34A853; }
+.vc-card.used .vc-top em, .vc-card.expired .vc-top em { color: #ff6b8a; }
+.vc-amt { font-size: 1.35rem; font-weight: 800; color: #fff; margin: 6px 0 4px; }
+.vc-code { font-family: Consolas, monospace; font-size: 0.78rem; letter-spacing: 0.5px; color: #00f2fe; background: rgba(0,0,0,0.4); border: 1px dashed rgba(0,242,254,0.4); border-radius: 8px; padding: 5px 8px; cursor: pointer; word-break: break-all; }
+.vc-exp { font-size: 0.68rem; color: rgba(255,255,255,0.5); margin-top: 6px; }
+.vc-empty { font-size: 0.82rem; color: rgba(255,255,255,0.6); border: 1px dashed rgba(255,255,255,0.2); border-radius: 12px; padding: 16px; text-align: center; margin-top: 8px; }
+
+/* Voucher di detail produk & sebelum pembayaran */
+.pd-vcs { display: flex; flex-direction: column; gap: 8px; }
+.pd-vc { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px dashed rgba(255,255,255,0.25); border-radius: 12px; padding: 10px 12px; cursor: pointer; background: rgba(0,0,0,0.25); color: #fff; font-size: 0.82rem; }
+.pd-vc small { display: block; color: rgba(255,255,255,0.5); font-size: 0.68rem; }
+.pd-vc span { color: #34A853; font-weight: 800; white-space: nowrap; }
+.pd-vc.sel { border: 1px solid #34A853; background: rgba(52,168,83,0.1); box-shadow: 0 0 12px rgba(52,168,83,0.2); }
+.pv-box { text-align: left; border: 1px solid rgba(52,168,83,0.4); background: rgba(52,168,83,0.06); border-radius: 12px; padding: 12px; margin-bottom: 15px; }
+.pv-head { font-weight: 800; font-size: 0.8rem; color: #34A853; letter-spacing: 1px; margin-bottom: 8px; }
+.pv-head small { color: rgba(255,255,255,0.5); font-weight: 400; letter-spacing: 0; }
+.pv-row { display: flex; gap: 8px; margin-bottom: 8px; }
+.pv-row select, .pv-row input { flex: 1; min-width: 0; background: #000; color: #fff; border: 1px solid rgba(255,255,255,0.25); border-radius: 8px; padding: 9px 10px; font-family: inherit; font-size: 0.8rem; color-scheme: dark; }
+.pv-row button, .pv-applied button { background: transparent; color: #34A853; border: 1px solid #34A853; border-radius: 8px; padding: 0 14px; font-weight: 800; font-size: 0.75rem; cursor: pointer; }
+.pv-row button:hover, .pv-applied button:hover { background: #34A853; color: #000; }
+.pv-applied { display: flex; justify-content: space-between; align-items: center; gap: 10px; border: 1px solid #34A853; border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; color: #fff; font-size: 0.8rem; }
+.pv-applied small { display: block; color: rgba(255,255,255,0.6); font-size: 0.68rem; }
+.pv-applied button { padding: 6px 12px; }
+.pv-msg { font-size: 0.75rem; margin: 2px 0 8px; } .pv-msg.err { color: #ff6b8a; } .pv-msg.ok { color: #34A853; } .pv-msg.warn { color: #ffaa00; }
+.pv-sum { display: flex; justify-content: space-between; font-size: 0.78rem; color: rgba(255,255,255,0.7); padding: 2px 0; }
+.pv-sum b { color: #fff; } .pv-sum.disc b { color: #34A853; }

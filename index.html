@@ -115,6 +115,8 @@
             <h3 style="color: #00f2fe; margin-bottom: 10px;">PEMBAYARAN NEXORA</h3>
             <p style="color:rgba(255,255,255,0.7); font-size:0.85rem; margin-bottom:15px;">Scan QRIS atau transfer manual dengan 3 digit angka unik di bawah ini.</p>
             
+            <div id="pay-voucher"></div>
+
             <div class="qris-box"><img src="QRIS NEXORA.png" alt="QRIS Nexora"></div>
             
             <!-- REVISI 4: Nominal dengan 3 digit unik & Bold -->
@@ -908,6 +910,7 @@
                     <div class="form-group"><label>Level & Diskon</label><input type="text" id="dash-c-level" class="setup-input" placeholder="" disabled ></div>
                     <div class="form-group"><label>Status Akun</label><input type="text" id="dash-c-status" class="setup-input" placeholder="" disabled style="color:#ffaa00; font-weight:bold;"></div>
                     <div class="form-group full-width" id="dash-c-levelprog"></div>
+                    <div class="form-group full-width" id="dash-c-voucher"></div>
                     <div class="dash-section full-width">Data Diri / Instansi</div>
                     <div class="form-group"><label>Jenis Akun</label><select id="dash-c-type" class="setup-input"><option value="Personal">Personal (Perorangan)</option><option value="Corporate">Corporate (Perusahaan / Instansi)</option></select></div>
                     <div class="form-group"><label>Nama Lengkap / Instansi <span class="req">*</span></label><input type="text" id="dash-c-name" class="setup-input" placeholder="Nama lengkap atau instansi" ></div>
@@ -960,6 +963,7 @@
                     <div class="form-group"><label>Saldo Pendapatan</label><input type="text" id="dash-w-balance" class="setup-input" placeholder="" disabled ></div><div class="form-group"><label>Saldo Tersisa (Pocket)</label><input type="text" id="dash-w-remaining" class="setup-input" placeholder="" disabled style="color:#00f2fe; font-weight:800;"></div><div class="form-group full-width"><button type="button" class="btn-futuristic pk-open" onclick="openPocket()">💰 BUKA POCKET &amp; CAIRKAN SALDO</button></div>
                     <div class="form-group full-width"><label>Status Akun</label><input type="text" id="dash-w-status" class="setup-input" placeholder="" disabled style="color:#ffaa00; font-weight:bold;"></div>
                     <div class="form-group full-width" id="dash-w-levelprog"></div>
+                    <div class="form-group full-width" id="dash-w-bonus"></div>
                     <div class="dash-section full-width">Data Diri</div>
                     <div class="form-group"><label>Nama Lengkap (Sesuai KTP) <span class="req">*</span></label><input type="text" id="dash-w-name" class="setup-input" placeholder="Nama lengkap" ></div>
                     <div class="form-group"><label>Nama Panggilan / Tampilan Katalog</label><input type="text" id="dash-w-nick" class="setup-input" placeholder="Nama panggilan" ></div>
