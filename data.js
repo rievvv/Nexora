@@ -52,11 +52,11 @@ let customersDB = [
 ];
 
 function calculateCustomerLevel(spent) {
-    if (spent <= 10000000) return { name: "NexMicro", icon: LEVEL_ICON_DIR + "NexMicro.png", file: "NexMicro.png", discount: "1%", max: 10000000, pct: (spent/10000000)*100, medal: "🥉", color: "#cd7f32" };
-    if (spent <= 50000000) return { name: "NexMacro", icon: LEVEL_ICON_DIR + "NexMacro.png", file: "NexMacro.png", discount: "2%", max: 50000000, pct: (spent/50000000)*100, medal: "🥈", color: "#64748b" };
-    if (spent <= 100000000) return { name: "NexSuper", icon: LEVEL_ICON_DIR + "NexSuper.png", file: "NexSuper.png", discount: "3%", max: 100000000, pct: (spent/100000000)*100, medal: "🥇", color: "#d97706" };
-    if (spent <= 500000000) return { name: "NexMega", icon: LEVEL_ICON_DIR + "NexMega.png", file: "NexMega.png", discount: "4%", max: 500000000, pct: (spent/500000000)*100, medal: "💎", color: "#00f2fe" };
-    return { name: "NexUltra", icon: LEVEL_ICON_DIR + "NexUltra.png", file: "NexUltra.png", discount: "5%", max: spent, pct: 100, medal: "👑", color: "#ff0055" };
+    if (spent <= 10000000) return { name: "NexMicro", icon: LEVEL_ICON_DIR + "Nexmicro.png", file: "Nexmicro.png", discount: "1%", max: 10000000, pct: (spent/10000000)*100, medal: "🥉", color: "#cd7f32" };
+    if (spent <= 50000000) return { name: "NexMacro", icon: LEVEL_ICON_DIR + "Nexmacro.png", file: "Nexmacro.png", discount: "2%", max: 50000000, pct: (spent/50000000)*100, medal: "🥈", color: "#64748b" };
+    if (spent <= 100000000) return { name: "NexSuper", icon: LEVEL_ICON_DIR + "Nexsuper.png", file: "Nexsuper.png", discount: "3%", max: 100000000, pct: (spent/100000000)*100, medal: "🥇", color: "#d97706" };
+    if (spent <= 500000000) return { name: "NexMega", icon: LEVEL_ICON_DIR + "Nexmega.png", file: "Nexmega.png", discount: "4%", max: 500000000, pct: (spent/500000000)*100, medal: "💎", color: "#00f2fe" };
+    return { name: "NexUltra", icon: LEVEL_ICON_DIR + "Nexultra.png", file: "Nexultra.png", discount: "5%", max: spent, pct: 100, medal: "👑", color: "#ff0055" };
 }
 
 // --- DATABASE KONTEN CMS ---
