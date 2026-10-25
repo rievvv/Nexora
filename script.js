@@ -2025,7 +2025,8 @@ window.NexBoot = function () {
     function setLvlIco(id, lvl) {
         const el = document.getElementById(id); if (!el) return;
         el.classList.add('has-lvl-ico');
-        el.style.backgroundImage = `url("${lvl.icon}")`;
+        el.style.backgroundImage = `url("${levelIconSrc(lvl)}")`;
+        if (!__lvlFound[lvl.file]) { const im = new Image(); im.onload = () => { __lvlFound[lvl.file] = im.src.replace(location.href.replace(/[^/]*$/, ''), ''); el.style.backgroundImage = `url("${im.src}")`; }; let k = 0; const c = __lvlCands(lvl.file); im.onerror = () => { if (++k < c.length) im.src = c[k]; }; im.src = c[0]; }
     }
     function fillDashboard(role, rec) {
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val === undefined || val === null) ? '' : val; };
