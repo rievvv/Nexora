@@ -2180,6 +2180,66 @@ window.NexBoot = function () {
         navigateTo(currentUser.role === 'worker' ? 'page-5' : 'page-4', 'forward');
     });
 
+
+    /* =========================================
+       DETAIL LENGKAP USER (ADMIN) - sama seperti dashboard profil Worker / Customer
+       ========================================= */
+    window.openUserDetail = function(role, id) {
+        const isW = role === 'worker';
+        const r = (isW ? workersDB : customersDB).find(x => x.id === id);
+        if (!r) return;
+        const lvl = isW ? calculateLevel(r.income || 0) : calculateCustomerLevel(r.spent || 0);
+        const statusMap = { Waiting: 'Menunggu Tinjauan Admin', Active: 'Aktif', Hold: 'Hold', Worker: 'Worker Aktif', 'On Progress': 'On Progress', Freeze: 'Freeze', Declined: 'Ditolak', Completed: 'Completed', Cancelled: 'Cancelled' };
+        const cell = (l, v, full, raw) => `<div class="ud-cell${full ? ' full' : ''}"><label>${l}</label><div class="v">${raw ? (v || '-') : (v ? escHtml(v) : '<span class="ud-empty">-</span>')}</div></div>`;
+        const sec = (t) => `<div class="ud-sec">${t}</div>`;
+        const link = (href, txt) => `<a href="${escHtml(href)}" target="_blank" rel="noopener" style="color:#00f2fe; word-break:break-all;">${escHtml(txt)}</a>`;
+        const waNum = (typeof waDigits === 'function') ? waDigits(r.wa) : String(r.wa || '').replace(/\D/g, '');
+        const rk = String(r.rekening || '').match(/^(.*?)\s+(\d+)\s+A\/N\s+(.*)$/i);
+        const web = r.website ? (/^https?:\/\//i.test(r.website) ? link(r.website, r.website) : escHtml(r.website)) : '';
+        let h = '';
+        h += `<div class="ud-head"><div class="avatar-wrapper" style="width:84px; height:84px; flex:0 0 84px;"><div class="avatar-o" style="font-size:2rem;">${renderAvatarHtml(r.avatar, escHtml((r.name || '?').trim().charAt(0).toUpperCase()))}</div><div class="level-medal img" style="width:40px; height:40px; top:-10px; right:-14px;" title="${escHtml(lvl.name)}">${levelIcon(lvl, 40)}</div></div>
+            <div class="ud-head-t"><div class="ud-name">${escHtml(r.name || '-')}</div><div class="ud-id">ID Nexora: ${escHtml(r.id)}</div>
+            <div class="ud-tags"><span class="ud-tag" style="color:${isW ? '#ff0055' : '#00f2fe'}; border-color:${isW ? '#ff0055' : '#00f2fe'};">${isW ? 'WORKER' : 'CUSTOMER'}</span><span class="ud-tag" style="color:${lvl.color}; border-color:${lvl.color};">${levelIcon(lvl, 16)} ${escHtml(lvl.name)} • ${isW ? 'Bonus ' + lvl.bonus : 'Diskon ' + lvl.discount}</span><span class="ud-tag" style="color:#ffaa00; border-color:#ffaa00;">${escHtml(statusMap[r.status] || r.status || '-')}</span></div></div></div>`;
+        h += `<div class="ud-actions"><button type="button" class="btn-action-sm btn-chat" onclick="closeUserDetail(); chatWithUser('${r.id}')">💬 Chat</button>${waNum ? `<a class="btn-action-sm btn-view" style="text-decoration:none;" href="https://wa.me/${waNum}" target="_blank" rel="noopener">WhatsApp</a>` : ''}${r.email ? `<a class="btn-action-sm btn-view" style="text-decoration:none;" href="mailto:${escHtml(r.email)}">Email</a>` : ''}${isW ? `<button type="button" class="btn-action-sm btn-view" onclick="closeUserDetail(); openWorkerDoc('${r.id}')">Dokumen</button>` : ''}</div>`;
+        if (isW) {
+            h += `<div class="ud-stats"><div><label>Saldo Pendapatan</label><b>${formatRp(r.balance || 0)}</b></div><div><label>Saldo Tersisa (Pocket)</label><b>${formatRp(pocketRemaining(r))}</b></div><div><label>Total Income</label><b>${formatRp(r.income || 0)}</b></div></div>`;
+        } else {
+            h += `<div class="ud-stats"><div><label>Total Belanja (Spent)</label><b>${formatRp(r.spent || 0)}</b></div><div><label>Jenis Akun</label><b>${escHtml(r.type || 'Personal')}</b></div><div><label>Bergabung</label><b>${escHtml(r.joined || '-')}</b></div></div>`;
+        }
+        h += `<div class="ud-lvl"><div class="profile-label" style="margin-bottom:5px;">Progres Level (EXP)</div>${levelProgressHtml(isW, isW ? (r.income || 0) : (r.spent || 0))}</div>`;
+        h += sec('Akun') + '<div class="ud-grid">' + cell('ID Nexora', r.id) + cell('NIK', r.nik) + cell('Username', r.username) + cell('Status Akun', statusMap[r.status] || r.status) + cell('Waktu Bergabung', r.joined) + '</div>';
+        if (isW) {
+            h += sec('Data Diri') + '<div class="ud-grid">' + cell('Nama Lengkap (Sesuai KTP)', r.name) + cell('Nama Panggilan / Katalog', r.nickname) + cell('Tempat, Tanggal Lahir', r.ttl, true) + '</div>';
+        } else {
+            h += sec('Data Diri / Instansi') + '<div class="ud-grid">' + cell('Jenis Akun', r.type) + cell('Nama Lengkap / Instansi', r.name) + cell('Nama Bisnis / Brand', r.business) + cell('Bidang Usaha', r.bizField) + cell('Tanggal Lahir / Berdiri', r.dob ? userBirthDate(r) : '') + '</div>';
+        }
+        h += sec('Kontak') + '<div class="ud-grid">' + cell('Email Aktif', r.email) + cell('Nomor WhatsApp', r.wa) + (isW ? '' : cell('Website / Instagram', web, true, true)) + '</div>';
+        h += sec(isW ? 'Alamat Domisili' : 'Alamat') + '<div class="ud-grid">' + cell('Alamat Lengkap', r.address, true) + cell('Kota / Kabupaten', r.city) + cell('Kode Pos', r.zip) + '</div>';
+        if (isW) {
+            h += sec('Profesional') + '<div class="ud-grid">' + cell('Spesialisasi / Keahlian', r.specs, true) + cell('Pengalaman', r.experience) + cell('Penerimaan Job', r.availability === 'off' ? 'Tidak Menerima Job (Libur)' : 'Menerima Job') + cell('Software / Tools', r.tools, true) + cell('Link Portofolio', r.portfolio ? (/^https?:\/\//i.test(r.portfolio) ? link(r.portfolio, r.portfolio) : escHtml(r.portfolio)) : '', true, true) + cell('Bio Singkat (Katalog)', r.bio, true) + '</div>';
+            h += sec('Rekening Pencairan Saldo') + '<div class="ud-grid">' + cell('Bank', rk ? rk[1] : '') + cell('Nomor Rekening', rk ? rk[2] : (r.rekening || '')) + cell('Atas Nama Rekening', rk ? rk[3] : '', true) + '</div>';
+        } else {
+            h += sec('Tentang Bisnis') + '<div class="ud-grid">' + cell('Deskripsi Bisnis / Kebutuhan Layanan', r.bio, true) + '</div>';
+        }
+        // Pesanan / proyek terkait
+        const ords = ordersDB.filter(o => isW ? o.workerId === r.id : o.customerId === r.id);
+        h += sec(isW ? 'Pesanan yang Dikerjakan' : 'Project / Pesanan');
+        if (ords.length) {
+            h += ords.map(o => `<div class="cd-project"><strong>${escHtml(o.productName)}</strong> <span style="color:#00f2fe;">(${escHtml(o.id)})</span><br>Status: <span style="color:${orderStatusColor(o.status)}; font-weight:700;">${escHtml(o.status)}</span> • ${formatRp(o.nominal)}<br>Mulai: ${fmtDate(o.startDate)} • Deadline: <span style="color:#ffaa00;">${fmtDate(o.deadlineAdjusted || o.deadlineDate)}</span>${isW ? '' : `<br>Worker: ${escHtml(o.workerId && o.workerId !== '-' ? o.workerId : 'Belum ditentukan')}`}</div>`).join('');
+        } else if (r.project) {
+            h += `<div class="cd-project"><strong>${escHtml(r.project)}</strong>${isW ? '<br>Customer: ' + escHtml(r.customer || '-') : '<br>Worker: ' + escHtml(r.workerAssigned || '-')}</div>`;
+        } else h += '<div class="ud-empty" style="padding:6px 0;">Belum ada pesanan.</div>';
+        if (isW) {
+            const pos = payoutsDB.filter(p => p.workerId === r.id).slice(0, 8);
+            h += sec('Riwayat Pencairan Dana');
+            h += pos.length ? pos.map(p => `<div class="cd-project">${escHtml(p.id)} • <strong style="color:#34A853;">${formatRp(p.amount)}</strong> • <span style="color:${PO_COLOR[p.status] || '#fff'};">${PO_LABEL[p.status] || escHtml(p.status)}</span><br><span style="color:rgba(255,255,255,0.55); font-size:0.78rem;">${fmtDT(p.requestedAt)}</span></div>`).join('') : '<div class="ud-empty" style="padding:6px 0;">Belum ada pencairan.</div>';
+        }
+        document.getElementById('ud-body').innerHTML = h;
+        document.getElementById('ud-title').innerText = isW ? 'DETAIL WORKER' : 'DETAIL CUSTOMER';
+        document.getElementById('user-detail-modal').classList.add('active');
+    };
+    window.closeUserDetail = function() { document.getElementById('user-detail-modal').classList.remove('active'); };
+
     /* =========================================
        DETAIL CUSTOMER (ADMIN)
        ========================================= */
@@ -3058,7 +3118,7 @@ window.NexBoot = function () {
             const avatarHtml = renderAvatarHtml(w.avatar, "O");
             const orderTag = (w.status === 'On Progress' && w.orderId) ? `<br><span style="font-size:0.75rem; color:#00f2fe; font-weight:700;">ID Pesanan: ${escHtml(w.orderId)}</span>` : '';
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal img" title="${lvl.name}">${levelIcon(lvl, 34)}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${w.id}')">💬${chatDot(w.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openWorkerDoc('${w.id}')">📄</button><button type="button" class="btn-action-sm btn-del" title="Hapus Worker" onclick="deleteWorker('${w.id}')">🗑️</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal img" title="${lvl.name}">${levelIcon(lvl, 34)}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${w.id}')">💬${chatDot(w.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openUserDetail('worker','${w.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Worker" onclick="deleteWorker('${w.id}')">🗑️</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -3082,7 +3142,7 @@ window.NexBoot = function () {
             const tr = document.createElement('tr'); tr.className = "data-row";
             const avatarHtml = renderAvatarHtml(c.avatar, "C");
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal img" title="${lvl.name}">${levelIcon(lvl, 34)}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${c.id}')">💬${chatDot(c.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Customer" onclick="deleteCustomer('${c.id}')">🗑️</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal img" title="${lvl.name}">${levelIcon(lvl, 34)}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${c.id}')">💬${chatDot(c.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openUserDetail('customer','${c.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Customer" onclick="deleteCustomer('${c.id}')">🗑️</button></td>`;
             tbodyCust.appendChild(tr);
         });
     };
