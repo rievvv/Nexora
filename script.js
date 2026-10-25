@@ -407,7 +407,7 @@ window.NexBoot = function () {
         if (!payCtx || !currentActiveOrder) return;
         const owner = voucherOwner();
         const v = (vid && owner) ? activeVouchers(owner, payCtx.kind).find(x => x.vid === vid) : null;
-        const disc = v ? Math.min(v.amount, payCtx.basePrice) : 0;
+        const disc = v ? vDiscOf(v, payCtx.basePrice) : 0;
         const o = currentActiveOrder;
         payCtx.vid = v ? v.vid : '';
         o.nominal = payCtx.basePrice - disc + payCtx.uniqueCode;
@@ -427,9 +427,9 @@ window.NexBoot = function () {
         let h = `<div class="pv-box"><div class="pv-head">🎟️ VOUCHER ${payCtx.kind} <small>(${V_LABEL[payCtx.kind]})</small></div>`;
         if (applied) {
             h += `<div class="pv-applied"><div><b>${escHtml(applied.code)}</b><small>Potongan ${formatRp(o.voucherAmount)} • s/d ${fmtShort(applied.expires)}</small></div><button type="button" data-pv="clear">LEPAS</button></div>`;
-            if (applied.amount > payCtx.basePrice) h += `<div class="pv-msg warn">Nilai voucher melebihi harga produk; selisih ${formatRp(applied.amount - payCtx.basePrice)} tidak dikembalikan.</div>`;
+            if (applied.unit !== 'pct' && applied.amount > payCtx.basePrice) h += `<div class="pv-msg warn">Nilai voucher melebihi harga produk; selisih ${formatRp(applied.amount - payCtx.basePrice)} tidak dikembalikan.</div>`;
         } else if (avail.length) {
-            h += `<div class="pv-row"><select id="pv-select"><option value="">Pilih voucher (${avail.length} tersedia)</option>${avail.map(v => `<option value="${escHtml(v.vid)}">${escHtml(v.code)} • ${formatRp(v.amount)} • s/d ${fmtShort(v.expires)}</option>`).join('')}</select></div>`;
+            h += `<div class="pv-row"><select id="pv-select"><option value="">Pilih voucher (${avail.length} tersedia)</option>${avail.map(v => `<option value="${escHtml(v.vid)}">${escHtml(v.code)} • ${vAmtTxt(v)} • s/d ${fmtShort(v.expires)}</option>`).join('')}</select></div>`;
         }
         if (!applied) h += `<div class="pv-row"><input type="text" id="pv-code" placeholder="Klaim kode voucher (cth: ${payCtx.kind}${escHtml(String(owner.id).replace(/^NEXC-/, ''))}-50000)" autocomplete="off"><button type="button" data-pv="claim">KLAIM</button></div>`;
         if (msg) h += `<div class="pv-msg ${ok ? 'ok' : 'err'}">${msg}</div>`;
@@ -1420,7 +1420,7 @@ window.NexBoot = function () {
             document.getElementById('content-list-view').style.display = 'none';
             document.getElementById('product-list-view').style.display = 'none';
             document.getElementById('voucher-manage-view').style.display = 'block';
-            renderAdminVouchers();
+            showVoucherList();
             return;
         }
 
@@ -1823,28 +1823,33 @@ window.NexBoot = function () {
     /* =========================================
        AREA VOUCHER (diisi Admin di Management Konten, diklaim Customer)
        ========================================= */
-    function newVoucherCode(kind) {
-        let code, n = 0;
-        do { code = kind + '-' + Math.random().toString(36).slice(2, 7).toUpperCase(); } while (vouchersDB.some(v => v.code === code) && n++ < 50);
-        return code;
-    }
+    const dayStart = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d, 0, 0, 0, 0).getTime(); };
+    const dayEnd = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d, 23, 59, 59, 999).getTime(); };
+    function areaState(v) { const n = Date.now(); if (v.startAt && n < v.startAt) return 'soon'; if (v.endAt && n > v.endAt) return 'ended'; return 'active'; }
+    const AREA_ST = { active: ['AKTIF', '#34A853'], soon: ['AKAN AKTIF', '#ffaa00'], ended: ['KADALUARSA', '#ff6b8a'] };
     function areaVoucherHtml(v, mode, owner) {
+        const st = areaState(v);
         const got = !!(owner && (owner.vouchers || []).some(x => x.avid === v.id));
         const btn = mode === 'admin'
             ? `<button type="button" class="vc-claim del" onclick="deleteAreaVoucher('${v.id}')">HAPUS</button>`
             : `<button type="button" class="vc-claim${got ? ' done' : ''}" ${got ? 'disabled' : ''} onclick="claimAreaVoucher('${v.id}')">${got ? 'SUDAH DIKLAIM' : 'KLAIM VOUCHER'}</button>`;
-        return `<div class="vc-card ${v.kind} active"><div class="vc-top"><b>${v.kind}</b><span>${V_LABEL[v.kind] || ''}</span></div>
-            <div class="vc-name">${escHtml(v.name)}</div><div class="vc-amt">${formatRp(v.amount)}</div>
-            <div class="vc-code" title="Kode voucher">${escHtml(v.code)}</div>${btn}</div>`;
+        const chip = mode === 'admin' ? `<em style="color:${AREA_ST[st][1]};">${AREA_ST[st][0]}</em>` : '';
+        const dates = (v.startAt || v.endAt) ? `<div class="vc-exp">${v.startAt ? 'Aktif ' + fmtShort(v.startAt) : ''}${v.startAt && v.endAt ? ' • ' : ''}${v.endAt ? 'Kadaluarsa ' + fmtShort(v.endAt) : ''}</div>` : '';
+        return `<div class="vc-card ${v.kind} ${st === 'active' ? 'active' : 'expired'}"><div class="vc-top"><b>${v.kind}</b><span>${V_LABEL[v.kind] || ''}</span>${chip}</div>
+            <div class="vc-name">${escHtml(v.name)}</div><div class="vc-amt">${vAmtTxt(v)}</div>${v.desc ? `<div class="vc-desc">${escHtml(v.desc)}</div>` : ''}
+            <div class="vc-code" title="Kode voucher">${escHtml(v.code)}</div>${dates}${st === 'active' ? vCountdownHtml(v.endAt) : ''}${btn}</div>`;
     }
     window.renderAdminVouchers = function() {
         const box = document.getElementById('admin-voucher-list'); if (!box) return;
-        box.innerHTML = vouchersDB.length ? vouchersDB.slice().reverse().map(v => areaVoucherHtml(v, 'admin')).join('') : '<div class="vc-empty" style="grid-column:1/-1;">Belum ada voucher. Isi form di atas lalu klik TAMBAH VOUCHER.</div>';
+        box.innerHTML = vouchersDB.length ? vouchersDB.slice().sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0)).map(v => areaVoucherHtml(v, 'admin')).join('') : '<div class="vc-empty" style="grid-column:1/-1;">Belum ada voucher. Klik "Tambahkan Voucher Baru".</div>';
+        tickVoucherCd();
     };
     window.renderMainVouchers = function() {
         const grid = document.getElementById('main-voucher-grid'); if (!grid) return;
         const owner = voucherOwner();
-        grid.innerHTML = vouchersDB.length ? vouchersDB.slice().reverse().map(v => areaVoucherHtml(v, 'user', owner)).join('') : '<div class="empty-video-state" style="grid-column: 1 / -1;">BELUM ADA VOUCHER SAAT INI</div>';
+        const list = vouchersDB.filter(v => areaState(v) === 'active').sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0));   // hanya voucher aktif
+        grid.innerHTML = list.length ? list.map(v => areaVoucherHtml(v, 'user', owner)).join('') : '<div class="empty-video-state" style="grid-column: 1 / -1;">BELUM ADA VOUCHER AKTIF SAAT INI</div>';
+        tickVoucherCd();
     };
     window.openVoucherArea = function() {
         if (currentOpenMainCategory !== '__voucher') pushNav({ page: 'page-1', cat: '__voucher', adm: '' });
@@ -1859,13 +1864,15 @@ window.NexBoot = function () {
         if (!currentUser) { pendingCategory = '__voucher'; openUserLogin(); return; }
         const c = voucherOwner();
         if (!c) { customAlert('Voucher hanya dapat diklaim oleh akun Customer.'); return; }
+        if (areaState(v) !== 'active') { customAlert('Voucher ini sedang tidak aktif.'); renderMainVouchers(); return; }
         c.vouchers = Array.isArray(c.vouchers) ? c.vouchers : [];
         if (c.vouchers.some(x => x.avid === v.id)) { customAlert('Anda sudah mengklaim voucher ini.'); return; }
-        const now = new Date(), exp = addMonthsClamped(now.getFullYear(), now.getMonth(), now.getDate(), 12); exp.setHours(23, 59, 59, 999);
-        c.vouchers.push({ vid: 'V' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), code: v.code, kind: v.kind, amount: v.amount, name: v.name, avid: v.id, src: 'area', issued: now.getTime(), expires: exp.getTime(), usedBy: '', usedAt: 0 });
+        const now = new Date(), oneYear = addMonthsClamped(now.getFullYear(), now.getMonth(), now.getDate(), 12); oneYear.setHours(23, 59, 59, 999);
+        const expires = v.endAt || oneYear.getTime();      // masa berlaku mengikuti tanggal kadaluarsa yang diisi Admin
+        c.vouchers.push({ vid: 'V' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), code: v.code, kind: v.kind, amount: v.amount, unit: v.unit || 'rp', name: v.name, desc: v.desc || '', avid: v.id, src: 'area', issued: now.getTime(), expires: expires, usedBy: '', usedAt: 0 });
         renderMainVouchers();
         try { refreshLoyaltyUI(); } catch (e) {}
-        customAlert('Voucher <b>' + escHtml(v.name) + '</b> masuk ke Kantong Voucher Anda (berlaku 1 tahun).');
+        customAlert('Voucher <b>' + escHtml(v.name) + '</b> masuk ke Kantong Voucher Anda (berlaku s/d ' + fmtShort(expires) + ').');
     };
     window.deleteAreaVoucher = function(id) {
         askDeletePassword('Hapus <strong>voucher</strong> ini dari Area Voucher? (Voucher yang sudah diklaim customer tetap berlaku)', () => {
@@ -1873,19 +1880,59 @@ window.NexBoot = function () {
             renderAdminVouchers();
         });
     };
-    const btnAddVoucher = document.getElementById('btn-add-voucher');
-    if (btnAddVoucher) btnAddVoucher.addEventListener('click', () => {
-        const name = document.getElementById('up-vch-name').value.trim();
-        const kind = document.getElementById('up-vch-kind').value;
-        const amount = parseInt(String(document.getElementById('up-vch-amount').value).replace(/\D/g, ''), 10) || 0;
-        if (!name) { customAlert('Nama voucher wajib diisi.'); return; }
-        if (!PROD_KINDS.includes(kind)) { customAlert('Pilih kode voucher: PJ, PE atau PF.'); return; }
-        if (amount <= 0) { customAlert('Jumlah potongan harus lebih dari 0.'); return; }
-        vouchersDB.push({ id: 'VCH-' + Date.now().toString(36).toUpperCase(), name: name, kind: kind, code: newVoucherCode(kind), amount: amount, createdAt: Date.now() });
-        document.getElementById('up-vch-name').value = ''; document.getElementById('up-vch-amount').value = '';
+
+    // --- Form admin: Terbitkan Voucher ---
+    const vf = (x) => document.getElementById(x);
+    window.showVoucherList = function() {
+        if (!vf('voucher-list-view')) return;
+        vf('voucher-list-view').style.display = 'block'; vf('voucher-form-view').style.display = 'none';
         renderAdminVouchers();
-        customAlert('Voucher berhasil ditambahkan ke Area Voucher!');
-    });
+    };
+    function vchAmountDigits() { return String(vf('up-vch-amount').value).replace(/\D/g, ''); }
+    function refreshVoucherCode() {
+        const unit = vf('up-vch-unit').value;
+        let digits = vchAmountDigits();
+        if (unit === 'pct' && +digits > 100) digits = '100';
+        const nm = vf('up-vch-name').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+        vf('up-vch-code').value = (nm && digits) ? `${vf('up-vch-kind').value}-${nm}${+digits}` : '';
+        const ok = nm && +digits > 0 && vf('up-vch-start').value && vf('up-vch-end').value;
+        vf('btn-submit-voucher').disabled = !ok;
+    }
+    function fmtVchAmount() {
+        const unit = vf('up-vch-unit').value; let d = vchAmountDigits();
+        if (unit === 'pct') { if (+d > 100) d = '100'; vf('up-vch-amount').value = d; }
+        else vf('up-vch-amount').value = d.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        vf('up-vch-amount').placeholder = unit === 'pct' ? 'Cth: 25 (persen, 1-100)' : 'Cth: 50.000';
+    }
+    if (vf('btn-add-voucher-open')) {
+        vf('btn-add-voucher-open').addEventListener('click', () => {
+            vf('voucher-list-view').style.display = 'none'; vf('voucher-form-view').style.display = 'block';
+            ['up-vch-name', 'up-vch-amount', 'up-vch-code', 'up-vch-desc', 'up-vch-end'].forEach(i => { vf(i).value = ''; });
+            vf('up-vch-kind').value = 'PJ'; vf('up-vch-unit').value = 'rp'; vf('up-vch-start').value = todayStr();
+            fmtVchAmount(); refreshVoucherCode();
+        });
+        vf('btn-cancel-voucher').addEventListener('click', showVoucherList);
+        vf('up-vch-unit').addEventListener('change', () => { vf('up-vch-amount').value = ''; fmtVchAmount(); refreshVoucherCode(); });
+        vf('up-vch-amount').addEventListener('input', () => { fmtVchAmount(); refreshVoucherCode(); });
+        ['up-vch-name', 'up-vch-kind', 'up-vch-start', 'up-vch-end'].forEach(i => { vf(i).addEventListener('input', refreshVoucherCode); vf(i).addEventListener('change', refreshVoucherCode); });
+        vf('btn-submit-voucher').addEventListener('click', () => {
+            refreshVoucherCode();
+            const name = vf('up-vch-name').value.trim(), kind = vf('up-vch-kind').value, unit = vf('up-vch-unit').value;
+            const amount = parseInt(vchAmountDigits(), 10) || 0, code = vf('up-vch-code').value;
+            const sd = vf('up-vch-start').value, ed = vf('up-vch-end').value;
+            if (!name) { customAlert('Nama voucher wajib diisi.'); return; }
+            if (!PROD_KINDS.includes(kind)) { customAlert('Pilih kode voucher: PJ, PE atau PF.'); return; }
+            if (amount <= 0) { customAlert('Potongan/Diskon wajib diisi dan harus lebih dari 0.'); return; }
+            if (unit === 'pct' && amount > 100) { customAlert('Diskon persen maksimal 100%.'); return; }
+            if (!sd || !ed) { customAlert('Tanggal aktif dan tanggal kadaluarsa wajib diisi.'); return; }
+            if (dayEnd(ed) < dayStart(sd)) { customAlert('Tanggal kadaluarsa tidak boleh sebelum tanggal aktif.'); return; }
+            if (dayEnd(ed) < Date.now()) { customAlert('Tanggal kadaluarsa sudah lewat. Pilih tanggal yang akan datang.'); return; }
+            if (vouchersDB.some(v => v.code === code && areaState(v) !== 'ended')) { customAlert('Kode voucher <b>' + escHtml(code) + '</b> sudah dipakai voucher lain yang masih berlaku. Ubah nama atau nominalnya.'); return; }
+            vouchersDB.push({ id: 'VCH-' + Date.now().toString(36).toUpperCase(), name: name, kind: kind, unit: unit, amount: amount, code: code, desc: vf('up-vch-desc').value.trim(), startAt: dayStart(sd), endAt: dayEnd(ed), createdAt: Date.now() });
+            showVoucherList();
+            customAlert('Voucher <b>' + escHtml(code) + '</b> berhasil diterbitkan!');
+        });
+    }
 
     /* =========================================
        EDITOR PAKET (ADMIN) + DETAIL PRODUK (USER)
@@ -1989,12 +2036,12 @@ window.NexBoot = function () {
         let vDisc = 0;
         const vOwner = voucherOwner();
         if (vOwner && !p.link && !sold) {
-            const vk = isJasa ? 'PJ' : 'PE', vs = activeVouchers(vOwner, vk);
+            const vk = productKind(p), vs = activeVouchers(vOwner, vk);
             if (vs.length) {
                 if (pdState.vid && !vs.some(x => x.vid === pdState.vid)) pdState.vid = '';
                 const cv = vs.find(x => x.vid === pdState.vid);
-                if (cv) vDisc = Math.min(cv.amount, unit || 0);
-                h += `<div class="pd-section">Voucher ${vk} <span style="text-transform:none; letter-spacing:0; color:rgba(255,255,255,0.45);">(${vs.length} tersedia)</span></div><div class="pd-vcs"><div class="pd-vc ${pdState.vid ? '' : 'sel'}" data-vid=""><b>Tanpa voucher</b></div>${vs.map(v => `<div class="pd-vc ${v.vid === pdState.vid ? 'sel' : ''}" data-vid="${escHtml(v.vid)}"><div><b>${escHtml(v.code)}</b><small>Berlaku s/d ${fmtShort(v.expires)}</small></div><span>- ${formatRp(v.amount)}</span></div>`).join('')}</div>`;
+                if (cv) vDisc = vDiscOf(cv, unit || 0);
+                h += `<div class="pd-section">Voucher ${vk} <span style="text-transform:none; letter-spacing:0; color:rgba(255,255,255,0.45);">(${vs.length} tersedia)</span></div><div class="pd-vcs"><div class="pd-vc ${pdState.vid ? '' : 'sel'}" data-vid=""><b>Tanpa voucher</b></div>${vs.map(v => `<div class="pd-vc ${v.vid === pdState.vid ? 'sel' : ''}" data-vid="${escHtml(v.vid)}"><div><b>${escHtml(v.code)}</b><small>Berlaku s/d ${fmtShort(v.expires)}</small></div><span>- ${vAmtTxt(v)}</span></div>`).join('')}</div>`;
             }
         }
         if (unit > 0) h += `<div class="pd-total"><span>Total (sebelum kode unik)${vDisc ? ' • voucher - ' + formatRp(vDisc) : ''}</span><b>${formatRp(unit - vDisc)}</b></div>`;
@@ -2314,6 +2361,25 @@ window.NexBoot = function () {
     }
 
     const V_LABEL = { PJ: 'Produk Jasa', PE: 'Produk Elektronik', PF: 'Produk Fisik' };
+    // Voucher bisa bernilai Rupiah (unit 'rp', default) atau Persen (unit 'pct')
+    const vDiscOf = (v, base) => v.unit === 'pct' ? Math.floor((base || 0) * Math.min(100, v.amount || 0) / 100) : Math.min(v.amount || 0, base || 0);
+    const vAmtTxt = (v) => v.unit === 'pct' ? (v.amount + '%') : formatRp(v.amount);
+    // Hitung mundur muncul 24 jam sebelum voucher kadaluarsa
+    const vCountdownHtml = (exp) => exp ? `<div class="vc-cd" data-exp="${exp}" style="display:none;"></div>` : '';
+    function tickVoucherCd() {
+        const els = document.querySelectorAll('.vc-cd[data-exp]'); if (!els.length) return;
+        const now = Date.now(); let ended = false;
+        els.forEach(el => {
+            const left = (+el.getAttribute('data-exp')) - now;
+            if (left <= 0) { if (el.getAttribute('data-done') !== '1') { el.setAttribute('data-done', '1'); el.textContent = '⛔ Voucher telah kadaluarsa'; el.style.display = 'block'; ended = true; } return; }
+            if (left > 86400000) { el.style.display = 'none'; return; }
+            const h = Math.floor(left / 3600000), m = Math.floor((left % 3600000) / 60000), sc = Math.floor((left % 60000) / 1000);
+            el.textContent = '⏳ Berakhir dalam ' + pad2(h) + ':' + pad2(m) + ':' + pad2(sc);
+            el.style.display = 'block';
+        });
+        if (ended) setTimeout(() => { try { if (currentOpenMainCategory === '__voucher') renderMainVouchers(); if (typeof renderAdminVouchers === 'function' && currentCMSCategory === 'voucher') renderAdminVouchers(); refreshLoyaltyUI(); } catch (e) {} }, 1200);
+    }
+    setInterval(() => { if (!document.hidden) tickVoucherCd(); }, 1000);
     const fmtShort = (ts) => new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     function vState(v) { return v.usedBy ? 'used' : (v.expires < Date.now() ? 'expired' : 'active'); }
     function activeVouchers(c, kind) { return (c && Array.isArray(c.vouchers) ? c.vouchers : []).filter(v => vState(v) === 'active' && (!kind || v.kind === kind)).sort((a, b) => a.expires - b.expires); }
@@ -2354,9 +2420,9 @@ window.NexBoot = function () {
         const s = vState(v);
         const stTxt = s === 'active' ? 'AKTIF' : (s === 'used' ? 'TERPAKAI' : 'KADALUARSA');
         return `<div class="vc-card ${v.kind} ${s}"><div class="vc-top"><b>${v.kind}</b><span>${V_LABEL[v.kind]}</span><em>${stTxt}</em></div>
-            ${v.name ? `<div class="vc-name">${escHtml(v.name)}</div>` : ''}<div class="vc-amt">${formatRp(v.amount)}</div>
+            ${v.name ? `<div class="vc-name">${escHtml(v.name)}</div>` : ''}<div class="vc-amt">${vAmtTxt(v)}</div>${v.desc ? `<div class="vc-desc">${escHtml(v.desc)}</div>` : ''}
             <div class="vc-code" title="Klik untuk menyalin kode" onclick="copyToClipboard('${escHtml(v.code)}')">${escHtml(v.code)}</div>
-            <div class="vc-exp">${s === 'used' ? 'Dipakai di pesanan ' + escHtml(v.usedBy) : 'Terbit ' + fmtShort(v.issued) + ' • berlaku s/d ' + fmtShort(v.expires)}</div></div>`;
+            <div class="vc-exp">${s === 'used' ? 'Dipakai di pesanan ' + escHtml(v.usedBy) : 'Terbit ' + fmtShort(v.issued) + ' • berlaku s/d ' + fmtShort(v.expires)}</div>${s === 'active' ? vCountdownHtml(v.expires) : ''}</div>`;
     }
     function voucherBagHtml(c) {
         const list = (Array.isArray(c.vouchers) ? c.vouchers : []).slice().sort((a, b) => {

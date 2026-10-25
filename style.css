@@ -1098,3 +1098,9 @@ input.has-lvl-ico { background-repeat: no-repeat !important; background-position
     body { -webkit-tap-highlight-color: transparent; }
     a, button, .card, .admin-card, .product-card { touch-action: manipulation; }
 }
+
+/* ===== Voucher: deskripsi, tanggal, hitung mundur ===== */
+.vc-desc { font-size: 0.74rem; color: rgba(255,255,255,0.65); line-height: 1.5; margin: 2px 0 8px; white-space: pre-line; }
+.vc-cd { margin-top: 8px; padding: 6px 8px; border-radius: 8px; text-align: center; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.5px; color: #ffaa00; background: rgba(255,170,0,0.1); border: 1px solid rgba(255,170,0,0.45); font-variant-numeric: tabular-nums; }
+.vc-top em { text-transform: none; }
+input[type="date"].setup-input { min-height: 44px; }

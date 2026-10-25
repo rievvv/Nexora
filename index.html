@@ -820,22 +820,44 @@
                     </div>
 
                     <!-- AREA VOUCHER -->
-                    <div id="voucher-manage-view" style="display: none; width: 100%; text-align: left;">
-                        <h3 style="color:#00f2fe; margin-bottom:15px;">AREA VOUCHER</h3>
-                        <p style="color:rgba(255,255,255,0.6); font-size:0.85rem; margin-bottom:15px;">Voucher yang dibuat di sini tampil di halaman <b>Area Voucher</b> dan dapat diklaim Customer ke Kantong Voucher mereka (berlaku 1 tahun sejak diklaim). PJ = Produk Jasa, PE = Produk Elektronik, PF = Produk Fisik.</p>
-                        <div class="form-grid">
-                            <div class="form-group full-width"><label>Nama Voucher <span class="req">*</span></label><input type="text" id="up-vch-name" class="setup-input" placeholder="Cth: Promo Gajian" autocomplete="off"></div>
-                            <div class="form-group"><label>Kode <span class="req">*</span></label>
-                                <select id="up-vch-kind" class="setup-input">
-                                    <option value="PJ">PJ - Produk Jasa</option>
-                                    <option value="PE">PE - Produk Elektronik</option>
-                                    <option value="PF">PF - Produk Fisik</option>
-                                </select>
+                    <div id="voucher-manage-view" style="display: none; width: 100%; text-align: center;">
+                        <div id="voucher-list-view" style="width: 100%;">
+                            <div class="file-upload-box" id="btn-add-voucher-open" style="border-color: #00f2fe; color: #00f2fe; border-style: dashed; padding: 40px; margin-bottom: 20px;">
+                                <span class="icon">➕</span>
+                                <span style="font-weight: bold; font-size: 1.2rem;">Tambahkan Voucher Baru</span>
                             </div>
-                            <div class="form-group"><label>Jumlah Potongan (Rp) <span class="req">*</span></label><input type="text" inputmode="numeric" autocomplete="off" id="up-vch-amount" class="setup-input" placeholder="Cth: 50.000" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')"></div>
+                            <p style="color:rgba(255,255,255,0.6); font-size:0.82rem; margin-bottom:15px; text-align:left;">Halaman <b>Area Voucher</b> milik customer hanya menampilkan voucher yang <b>aktif</b>. Di sini semua voucher tampil lengkap dengan statusnya. PJ = Produk Jasa, PE = Produk Elektronik, PF = Produk Fisik.</p>
+                            <div id="admin-voucher-list" class="vc-grid" style="text-align:left;"></div>
                         </div>
-                        <button type="button" id="btn-add-voucher" class="btn-futuristic" style="width:100%; margin: 15px 0 25px;">TAMBAH VOUCHER</button>
-                        <div id="admin-voucher-list" class="vc-grid"></div>
+
+                        <div id="voucher-form-view" style="display: none; width: 100%; text-align: left;">
+                            <h3 style="color:#00f2fe; margin-bottom:20px;">TERBITKAN VOUCHER BARU</h3>
+                            <div class="form-grid">
+                                <div class="form-group full-width"><label>Nama Voucher <span class="req">*</span></label><input type="text" id="up-vch-name" class="setup-input" placeholder="Cth: Opening" autocomplete="off"></div>
+                                <div class="form-group full-width"><label>Kode Kategori <span class="req">*</span></label>
+                                    <select id="up-vch-kind" class="setup-input">
+                                        <option value="PJ">PJ - Produk Jasa</option>
+                                        <option value="PE">PE - Produk Elektronik</option>
+                                        <option value="PF">PF - Produk Fisik</option>
+                                    </select>
+                                </div>
+                                <div class="form-group full-width"><label>Potongan / Diskon <span class="req">*</span></label>
+                                    <div style="display:flex; gap:10px;">
+                                        <input type="text" inputmode="numeric" autocomplete="off" id="up-vch-amount" class="setup-input" style="flex:1; min-width:0;" placeholder="Cth: 50.000">
+                                        <select id="up-vch-unit" class="setup-input" style="width:140px; flex:0 0 140px;">
+                                            <option value="rp">Rupiah</option>
+                                            <option value="pct">Persen</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="form-group full-width"><label>Kode Voucher (otomatis)</label><input type="text" id="up-vch-code" class="setup-input" readonly placeholder="Contoh: PJ-OPENING50000 atau PJ-OPENING25" style="letter-spacing:1px; font-weight:800; color:#00f2fe;"></div>
+                                <div class="form-group"><label>Tanggal Aktif <span class="req">*</span></label><input type="date" id="up-vch-start" class="setup-input" style="color-scheme: dark;"></div>
+                                <div class="form-group"><label>Tanggal Kadaluarsa <span class="req">*</span></label><input type="date" id="up-vch-end" class="setup-input" style="color-scheme: dark;"></div>
+                                <div class="form-group full-width"><label>Deskripsi Voucher</label><textarea id="up-vch-desc" class="setup-input" rows="4" placeholder="Jelaskan voucher: syarat, produk yang berlaku, dll." style="resize:vertical; font-family:inherit;"></textarea></div>
+                            </div>
+                            <button type="button" id="btn-submit-voucher" class="btn-futuristic" style="width:100%; margin-top:20px;" disabled>TERBITKAN VOUCHER</button>
+                            <button type="button" id="btn-cancel-voucher" class="btn-futuristic" style="width:100%; margin-top:10px; background:transparent; color:#ff0055; border-color:#ff0055;">BATAL</button>
+                        </div>
                     </div>
 
                     <!-- LIST PRODUK -->
