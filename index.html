@@ -551,7 +551,8 @@
                     <h2 class="section-title" style="margin: 0; text-align: left;">🎟️ AREA VOUCHER</h2>
                     <button class="btn-back-menu" onclick="closeMainCategory()">KEMBALI</button>
                 </div>
-                <div id="main-voucher-grid" class="vc-grid" style="width:100%;"></div>
+                <div id="main-voucher-grid" class="vrow-list" style="width:100%;"></div>
+                <div id="main-voucher-pager" class="vp-pager"></div>
             </div>
 
             <!-- FOOTER HALAMAN UTAMA -->
@@ -815,7 +816,10 @@
                             <input type="file" id="up-banner-file" accept="image/*" style="display: none;" onchange="document.getElementById('up-banner-filename').innerText = this.files[0] ? this.files[0].name : 'Pilih Gambar Banner';">
                         </label>
                         <input type="url" id="up-banner-link" class="setup-input" placeholder="Link tujuan iklan (opsional) https://...">
-                        <button type="button" id="btn-add-banner" class="btn-futuristic" style="width:100%; margin-bottom: 25px;">TAMBAH BANNER</button>
+                        <div style="margin-bottom: 25px;">
+                            <button type="button" id="btn-add-banner" class="btn-futuristic" style="width:100%;">TAMBAH BANNER</button>
+                            <button type="button" id="btn-cancel-banner-edit" class="btn-futuristic" style="display:none; width:100%; margin-top:10px; background:transparent; color:#ff0055; border-color:#ff0055;">BATAL EDIT</button>
+                        </div>
                         <div id="admin-banner-list" class="banner-admin-list"></div>
                     </div>
 
@@ -827,11 +831,17 @@
                                 <span style="font-weight: bold; font-size: 1.2rem;">Tambahkan Voucher Baru</span>
                             </div>
                             <p style="color:rgba(255,255,255,0.6); font-size:0.82rem; margin-bottom:15px; text-align:left;">Halaman <b>Area Voucher</b> milik customer hanya menampilkan voucher yang <b>aktif</b>. Di sini semua voucher tampil lengkap dengan statusnya. PJ = Produk Jasa, PE = Produk Elektronik, PF = Produk Fisik.</p>
-                            <div id="admin-voucher-list" class="vc-grid" style="text-align:left;"></div>
+                            <div id="admin-voucher-list" class="vrow-list" style="text-align:left;"></div>
                         </div>
 
                         <div id="voucher-form-view" style="display: none; width: 100%; text-align: left;">
                             <h3 style="color:#00f2fe; margin-bottom:20px;">TERBITKAN VOUCHER BARU</h3>
+                            <label class="vid-upload-label" style="margin-bottom: 20px;">
+                                <span class="icon">🎟️</span>
+                                <span class="txt" id="up-vch-filename">Pilih Gambar Voucher (Wajib 2550 x 840 px)</span>
+                                <input type="file" id="up-vch-file" accept="image/*" style="display: none;">
+                            </label>
+                            <img id="up-vch-preview" alt="Pratinjau voucher" style="display:none; width:100%; aspect-ratio:2550 / 840; object-fit:cover; border-radius:14px; border:1px solid rgba(0,242,254,0.35); margin:-8px 0 20px;">
                             <div class="form-grid">
                                 <div class="form-group full-width"><label>Nama Voucher <span class="req">*</span></label><input type="text" id="up-vch-name" class="setup-input" placeholder="Cth: Opening" autocomplete="off"></div>
                                 <div class="form-group full-width"><label>Kode Kategori <span class="req">*</span></label>

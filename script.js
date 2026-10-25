@@ -1827,33 +1827,52 @@ window.NexBoot = function () {
     const dayEnd = (iso) => { const [y, m, d] = iso.split('-').map(Number); return new Date(y, m - 1, d, 23, 59, 59, 999).getTime(); };
     function areaState(v) { const n = Date.now(); if (v.startAt && n < v.startAt) return 'soon'; if (v.endAt && n > v.endAt) return 'ended'; return 'active'; }
     const AREA_ST = { active: ['AKTIF', '#34A853'], soon: ['AKAN AKTIF', '#ffaa00'], ended: ['KADALUARSA', '#ff6b8a'] };
+    const VCH_W = 2550, VCH_H = 840, VCH_PER_PAGE = 2;
+    let voucherPage = 0;
     function areaVoucherHtml(v, mode, owner) {
         const st = areaState(v);
         const got = !!(owner && (owner.vouchers || []).some(x => x.avid === v.id));
         const btn = mode === 'admin'
             ? `<button type="button" class="vc-claim del" onclick="deleteAreaVoucher('${v.id}')">HAPUS</button>`
             : `<button type="button" class="vc-claim${got ? ' done' : ''}" ${got ? 'disabled' : ''} onclick="claimAreaVoucher('${v.id}')">${got ? 'SUDAH DIKLAIM' : 'KLAIM VOUCHER'}</button>`;
-        const chip = mode === 'admin' ? `<em style="color:${AREA_ST[st][1]};">${AREA_ST[st][0]}</em>` : '';
+        const chip = mode === 'admin' ? `<em class="vrow-chip" style="color:${AREA_ST[st][1]}; border-color:${AREA_ST[st][1]};">${AREA_ST[st][0]}</em>` : '';
         const dates = (v.startAt || v.endAt) ? `<div class="vc-exp">${v.startAt ? 'Aktif ' + fmtShort(v.startAt) : ''}${v.startAt && v.endAt ? ' • ' : ''}${v.endAt ? 'Kadaluarsa ' + fmtShort(v.endAt) : ''}</div>` : '';
-        return `<div class="vc-card ${v.kind} ${st === 'active' ? 'active' : 'expired'}"><div class="vc-top"><b>${v.kind}</b><span>${V_LABEL[v.kind] || ''}</span>${chip}</div>
-            <div class="vc-name">${escHtml(v.name)}</div><div class="vc-amt">${vAmtTxt(v)}</div>${v.desc ? `<div class="vc-desc">${escHtml(v.desc)}</div>` : ''}
-            <div class="vc-code" title="Kode voucher">${escHtml(v.code)}</div>${dates}${st === 'active' ? vCountdownHtml(v.endAt) : ''}${btn}</div>`;
+        const img = v.imgUrl
+            ? `<img src="${v.imgUrl}" alt="${escHtml(v.name)}" loading="lazy" decoding="async" draggable="false">`
+            : `<div class="vrow-ph"><b>${v.kind}</b><span>${vAmtTxt(v)}</span></div>`;
+        return `<div class="vrow ${v.kind} ${st}">
+            <div class="vrow-img">${img}<span class="vrow-kind ${v.kind}">${v.kind} • ${V_LABEL[v.kind] || ''}</span></div>
+            <div class="vrow-info">
+                <div class="vrow-head"><div class="vc-name" style="margin:0;">${escHtml(v.name)}</div>${chip}<div class="vrow-amt">${vAmtTxt(v)}</div></div>
+                ${v.desc ? `<div class="vc-desc">${escHtml(v.desc)}</div>` : ''}
+                <div class="vrow-meta"><div class="vc-code" title="Kode voucher">${escHtml(v.code)}</div>${dates}</div>
+                ${st === 'active' ? vCountdownHtml(v.endAt) : ''}${btn}
+            </div></div>`;
     }
     window.renderAdminVouchers = function() {
         const box = document.getElementById('admin-voucher-list'); if (!box) return;
-        box.innerHTML = vouchersDB.length ? vouchersDB.slice().sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0)).map(v => areaVoucherHtml(v, 'admin')).join('') : '<div class="vc-empty" style="grid-column:1/-1;">Belum ada voucher. Klik "Tambahkan Voucher Baru".</div>';
+        box.innerHTML = vouchersDB.length ? vouchersDB.slice().sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0)).map(v => areaVoucherHtml(v, 'admin')).join('') : '<div class="vc-empty">Belum ada voucher. Klik "Tambahkan Voucher Baru".</div>';
         tickVoucherCd();
     };
+    // Halaman Area Voucher: hanya voucher aktif, 2 baris voucher per halaman
     window.renderMainVouchers = function() {
-        const grid = document.getElementById('main-voucher-grid'); if (!grid) return;
+        const grid = document.getElementById('main-voucher-grid'), pager = document.getElementById('main-voucher-pager'); if (!grid) return;
         const owner = voucherOwner();
-        const list = vouchersDB.filter(v => areaState(v) === 'active').sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0));   // hanya voucher aktif
-        grid.innerHTML = list.length ? list.map(v => areaVoucherHtml(v, 'user', owner)).join('') : '<div class="empty-video-state" style="grid-column: 1 / -1;">BELUM ADA VOUCHER AKTIF SAAT INI</div>';
+        const list = vouchersDB.filter(v => areaState(v) === 'active').sort((x, y) => (y.createdAt || 0) - (x.createdAt || 0));
+        const pages = Math.max(1, Math.ceil(list.length / VCH_PER_PAGE));
+        voucherPage = Math.max(0, Math.min(voucherPage, pages - 1));
+        const cur = list.slice(voucherPage * VCH_PER_PAGE, voucherPage * VCH_PER_PAGE + VCH_PER_PAGE);
+        grid.innerHTML = cur.length ? cur.map(v => areaVoucherHtml(v, 'user', owner)).join('') : '<div class="empty-video-state">BELUM ADA VOUCHER AKTIF SAAT INI</div>';
+        if (pager) pager.innerHTML = pages > 1 ? `<button type="button" class="vp-btn" onclick="voucherPageGo(-1)" ${voucherPage === 0 ? 'disabled' : ''}>&#10094; SEBELUMNYA</button><span class="vp-info">Halaman ${voucherPage + 1} / ${pages}</span><button type="button" class="vp-btn" onclick="voucherPageGo(1)" ${voucherPage >= pages - 1 ? 'disabled' : ''}>BERIKUTNYA &#10095;</button>` : '';
         tickVoucherCd();
+    };
+    window.voucherPageGo = function(d) {
+        voucherPage += d; renderMainVouchers();
+        const g = document.getElementById('main-voucher-grid'); if (g && g.scrollIntoView) g.scrollIntoView({ block: 'start', behavior: 'smooth' });
     };
     window.openVoucherArea = function() {
         if (currentOpenMainCategory !== '__voucher') pushNav({ page: 'page-1', cat: '__voucher', adm: '' });
-        currentOpenMainCategory = '__voucher';
+        currentOpenMainCategory = '__voucher'; voucherPage = 0;
         document.getElementById('main-view-default').style.display = 'none';
         document.getElementById('main-view-category').style.display = 'none';
         document.getElementById('main-view-voucher').style.display = 'flex';
@@ -1869,7 +1888,7 @@ window.NexBoot = function () {
         if (c.vouchers.some(x => x.avid === v.id)) { customAlert('Anda sudah mengklaim voucher ini.'); return; }
         const now = new Date(), oneYear = addMonthsClamped(now.getFullYear(), now.getMonth(), now.getDate(), 12); oneYear.setHours(23, 59, 59, 999);
         const expires = v.endAt || oneYear.getTime();      // masa berlaku mengikuti tanggal kadaluarsa yang diisi Admin
-        c.vouchers.push({ vid: 'V' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), code: v.code, kind: v.kind, amount: v.amount, unit: v.unit || 'rp', name: v.name, desc: v.desc || '', avid: v.id, src: 'area', issued: now.getTime(), expires: expires, usedBy: '', usedAt: 0 });
+        c.vouchers.push({ vid: 'V' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), code: v.code, kind: v.kind, amount: v.amount, unit: v.unit || 'rp', name: v.name, desc: v.desc || '', img: v.imgUrl || '', avid: v.id, src: 'area', issued: now.getTime(), expires: expires, usedBy: '', usedAt: 0 });
         renderMainVouchers();
         try { refreshLoyaltyUI(); } catch (e) {}
         customAlert('Voucher <b>' + escHtml(v.name) + '</b> masuk ke Kantong Voucher Anda (berlaku s/d ' + fmtShort(expires) + ').');
@@ -1888,6 +1907,14 @@ window.NexBoot = function () {
         vf('voucher-list-view').style.display = 'block'; vf('voucher-form-view').style.display = 'none';
         renderAdminVouchers();
     };
+    let vchFile = null;
+    function setVchFile(f) {
+        vchFile = f || null;
+        const pv = vf('up-vch-preview'), tx = vf('up-vch-filename');
+        if (pv) { if (pv.getAttribute('data-u')) URL.revokeObjectURL(pv.getAttribute('data-u')); pv.removeAttribute('data-u'); pv.style.display = 'none'; pv.removeAttribute('src'); }
+        tx.innerText = f ? f.name : `Pilih Gambar Voucher (Wajib ${VCH_W} x ${VCH_H} px)`;
+        if (f && pv) { const u = URL.createObjectURL(f); pv.setAttribute('data-u', u); pv.src = u; pv.style.display = 'block'; }
+    }
     function vchAmountDigits() { return String(vf('up-vch-amount').value).replace(/\D/g, ''); }
     function refreshVoucherCode() {
         const unit = vf('up-vch-unit').value;
@@ -1895,7 +1922,7 @@ window.NexBoot = function () {
         if (unit === 'pct' && +digits > 100) digits = '100';
         const nm = vf('up-vch-name').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
         vf('up-vch-code').value = (nm && digits) ? `${vf('up-vch-kind').value}-${nm}${+digits}` : '';
-        const ok = nm && +digits > 0 && vf('up-vch-start').value && vf('up-vch-end').value;
+        const ok = nm && +digits > 0 && vf('up-vch-start').value && vf('up-vch-end').value && vchFile;
         vf('btn-submit-voucher').disabled = !ok;
     }
     function fmtVchAmount() {
@@ -1907,11 +1934,29 @@ window.NexBoot = function () {
     if (vf('btn-add-voucher-open')) {
         vf('btn-add-voucher-open').addEventListener('click', () => {
             vf('voucher-list-view').style.display = 'none'; vf('voucher-form-view').style.display = 'block';
-            ['up-vch-name', 'up-vch-amount', 'up-vch-code', 'up-vch-desc', 'up-vch-end'].forEach(i => { vf(i).value = ''; });
+            ['up-vch-name', 'up-vch-amount', 'up-vch-code', 'up-vch-desc', 'up-vch-end', 'up-vch-file'].forEach(i => { vf(i).value = ''; });
+            setVchFile(null);
             vf('up-vch-kind').value = 'PJ'; vf('up-vch-unit').value = 'rp'; vf('up-vch-start').value = todayStr();
             fmtVchAmount(); refreshVoucherCode();
         });
-        vf('btn-cancel-voucher').addEventListener('click', showVoucherList);
+        vf('btn-cancel-voucher').addEventListener('click', () => { setVchFile(null); showVoucherList(); });
+        // Validasi ukuran gambar voucher: harus tepat 2550 x 840 px
+        vf('up-vch-file').addEventListener('change', (e) => {
+            const f = e.target.files[0];
+            if (!f) { setVchFile(null); refreshVoucherCode(); return; }
+            if (!/^image\//.test(f.type)) { customAlert('File harus berupa gambar (JPG / PNG / WebP).'); e.target.value = ''; setVchFile(null); refreshVoucherCode(); return; }
+            const u = URL.createObjectURL(f), im = new Image();
+            im.onload = () => {
+                const w = im.naturalWidth, h = im.naturalHeight; URL.revokeObjectURL(u);
+                if (w !== VCH_W || h !== VCH_H) { customAlert(`Ukuran gambar voucher harus <b>${VCH_W} x ${VCH_H} px</b>.<br>Gambar yang dipilih berukuran ${w} x ${h} px.`); e.target.value = ''; setVchFile(null); }
+                else setVchFile(f);
+                refreshVoucherCode();
+            };
+            im.onerror = () => { URL.revokeObjectURL(u); customAlert('Gambar tidak dapat dibaca. Coba file lain.'); e.target.value = ''; setVchFile(null); refreshVoucherCode(); };
+            im.src = u;
+        });
+        // Klik kolom tanggal -> kalender langsung terbuka
+        ['up-vch-start', 'up-vch-end'].forEach(i => vf(i).addEventListener('click', function() { try { if (this.showPicker) this.showPicker(); } catch (er) {} }));
         vf('up-vch-unit').addEventListener('change', () => { vf('up-vch-amount').value = ''; fmtVchAmount(); refreshVoucherCode(); });
         vf('up-vch-amount').addEventListener('input', () => { fmtVchAmount(); refreshVoucherCode(); });
         ['up-vch-name', 'up-vch-kind', 'up-vch-start', 'up-vch-end'].forEach(i => { vf(i).addEventListener('input', refreshVoucherCode); vf(i).addEventListener('change', refreshVoucherCode); });
@@ -1924,11 +1969,13 @@ window.NexBoot = function () {
             if (!PROD_KINDS.includes(kind)) { customAlert('Pilih kode voucher: PJ, PE atau PF.'); return; }
             if (amount <= 0) { customAlert('Potongan/Diskon wajib diisi dan harus lebih dari 0.'); return; }
             if (unit === 'pct' && amount > 100) { customAlert('Diskon persen maksimal 100%.'); return; }
+            if (!vchFile) { customAlert(`Gambar voucher (${VCH_W} x ${VCH_H} px) wajib diunggah.`); return; }
             if (!sd || !ed) { customAlert('Tanggal aktif dan tanggal kadaluarsa wajib diisi.'); return; }
             if (dayEnd(ed) < dayStart(sd)) { customAlert('Tanggal kadaluarsa tidak boleh sebelum tanggal aktif.'); return; }
             if (dayEnd(ed) < Date.now()) { customAlert('Tanggal kadaluarsa sudah lewat. Pilih tanggal yang akan datang.'); return; }
             if (vouchersDB.some(v => v.code === code && areaState(v) !== 'ended')) { customAlert('Kode voucher <b>' + escHtml(code) + '</b> sudah dipakai voucher lain yang masih berlaku. Ubah nama atau nominalnya.'); return; }
-            vouchersDB.push({ id: 'VCH-' + Date.now().toString(36).toUpperCase(), name: name, kind: kind, unit: unit, amount: amount, code: code, desc: vf('up-vch-desc').value.trim(), startAt: dayStart(sd), endAt: dayEnd(ed), createdAt: Date.now() });
+            vouchersDB.push({ id: 'VCH-' + Date.now().toString(36).toUpperCase(), name: name, kind: kind, unit: unit, amount: amount, code: code, desc: vf('up-vch-desc').value.trim(), imgUrl: URL.createObjectURL(vchFile), startAt: dayStart(sd), endAt: dayEnd(ed), createdAt: Date.now() });
+            setVchFile(null); vf('up-vch-file').value = '';
             showVoucherList();
             customAlert('Voucher <b>' + escHtml(code) + '</b> berhasil diterbitkan!');
         });
@@ -2849,25 +2896,54 @@ window.NexBoot = function () {
         slider.addEventListener('pointerup', end); slider.addEventListener('pointercancel', end);
     })();
 
+    let editBannerId = null;
     window.renderAdminBanners = function() {
         const box = document.getElementById('admin-banner-list');
         if (!box) return;
         if (!bannersDB.length) { box.innerHTML = '<div class="empty-video-state" style="grid-column: 1 / -1;">BELUM ADA BANNER IKLAN</div>'; return; }
-        box.innerHTML = bannersDB.map((b, i) => `<div class="banner-admin-item"><img src="${b.imgUrl}" alt="Banner ${i + 1}"><div class="meta"><span>${b.link ? escHtml(b.link) : 'Tanpa link'}</span><button type="button" class="btn-vid-action btn-vid-del" style="flex:0 0 auto;" onclick="deleteBanner('${b.id}')">HAPUS</button></div></div>`).join('');
+        box.innerHTML = bannersDB.map((b, i) => `<div class="banner-admin-item${b.id === editBannerId ? ' editing' : ''}"><img src="${b.imgUrl}" alt="Banner ${i + 1}"><div class="meta"><span>${b.link ? escHtml(b.link) : 'Tanpa link'}</span><span style="display:flex; gap:6px; flex:0 0 auto;"><button type="button" class="btn-vid-action btn-vid-edit" style="flex:0 0 auto;" onclick="startEditBanner('${b.id}')">EDIT</button><button type="button" class="btn-vid-action btn-vid-del" style="flex:0 0 auto;" onclick="deleteBanner('${b.id}')">HAPUS</button></span></div></div>`).join('');
+    };
+    function resetBannerForm() {
+        editBannerId = null;
+        document.getElementById('up-banner-file').value = '';
+        document.getElementById('up-banner-link').value = '';
+        document.getElementById('up-banner-filename').innerText = 'Pilih Gambar Banner';
+        document.getElementById('btn-add-banner').innerText = 'TAMBAH BANNER';
+        document.getElementById('btn-cancel-banner-edit').style.display = 'none';
+    }
+    window.startEditBanner = function(id) {
+        const b = bannersDB.find(x => x.id === id); if (!b) return;
+        editBannerId = id;
+        document.getElementById('up-banner-file').value = '';
+        document.getElementById('up-banner-link').value = b.link || '';
+        document.getElementById('up-banner-filename').innerText = '(Abaikan jika tidak ingin mengganti gambar)';
+        document.getElementById('btn-add-banner').innerText = 'SIMPAN PERUBAHAN BANNER';
+        document.getElementById('btn-cancel-banner-edit').style.display = 'block';
+        renderAdminBanners();
+        const el = document.getElementById('up-banner-link'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
     };
     window.deleteBanner = function(id) {
-        askDeletePassword('Hapus <strong>banner iklan</strong> ini?', () => { bannersDB = bannersDB.filter(b => b.id !== id); renderAdminBanners(); renderBanners(); });
+        askDeletePassword('Hapus <strong>banner iklan</strong> ini?', () => { if (editBannerId === id) resetBannerForm(); bannersDB = bannersDB.filter(b => b.id !== id); renderAdminBanners(); renderBanners(); });
     };
+    const btnCancelBannerEdit = document.getElementById('btn-cancel-banner-edit');
+    if (btnCancelBannerEdit) btnCancelBannerEdit.addEventListener('click', () => { resetBannerForm(); renderAdminBanners(); });
     const btnAddBanner = document.getElementById('btn-add-banner');
     if (btnAddBanner) btnAddBanner.addEventListener('click', () => {
         const f = document.getElementById('up-banner-file').files[0];
         const link = document.getElementById('up-banner-link').value.trim();
-        if (!f) { customAlert('Pilih gambar banner terlebih dahulu.'); return; }
         if (link && !/^https?:\/\//i.test(link)) { customAlert('Link harus diawali http:// atau https://'); return; }
+        if (editBannerId) {
+            const b = bannersDB.find(x => x.id === editBannerId);
+            if (!b) { resetBannerForm(); renderAdminBanners(); return; }
+            if (f) b.imgUrl = URL.createObjectURL(f);
+            b.link = link;
+            resetBannerForm(); renderAdminBanners(); renderBanners();
+            customAlert('Banner iklan berhasil diperbarui!');
+            return;
+        }
+        if (!f) { customAlert('Pilih gambar banner terlebih dahulu.'); return; }
         bannersDB.push({ id: 'BNR-' + Date.now(), imgUrl: URL.createObjectURL(f), link: link });
-        document.getElementById('up-banner-file').value = '';
-        document.getElementById('up-banner-link').value = '';
-        document.getElementById('up-banner-filename').innerText = 'Pilih Gambar Banner';
+        resetBannerForm();
         renderAdminBanners(); renderBanners();
         customAlert('Banner iklan berhasil ditambahkan!');
     });
