@@ -611,6 +611,7 @@
                         <div class="admin-card" id="btn-menu-content"><div class="icon">🎬</div><h3>Management Konten</h3><p>Upload & Pin Video Katalog.</p></div>
                         <div class="admin-card" id="btn-menu-finance"><div class="icon">💰</div><h3>Laporan Keuangan</h3><p>Pemasukan, pengeluaran, bagi hasil & total income.</p></div>
                         <div class="admin-card" id="btn-menu-payout"><div class="icon">💸</div><h3>Pencairan Dana</h3><p>Proses permintaan pencairan Pocket Worker & upload bukti transfer.</p><div id="payout-badge-notif" style="position: absolute; top: 15px; right: 15px; background: #ff0055; color: #fff; border-radius: 50%; width: 25px; height: 25px; display: none; justify-content: center; align-items: center; font-size: 0.75rem; font-weight: bold;">0</div></div>
+                        <div class="admin-card" id="btn-menu-meeting"><div class="icon">🎥</div><h3>Meeting Room</h3><p>Briefing project live: video, share screen, whiteboard & rekaman.</p></div>
                         <div class="admin-card" id="btn-menu-chat"><div class="icon">💬</div><h3>Chat User</h3><p>Balas pesan dari Customer & Worker.</p><div id="chat-badge-notif" class="notif-badge" style="display: none;">0</div></div>
                     </div>
                 </div>
@@ -652,6 +653,30 @@
                             <thead><tr><th>ID PENCAIRAN</th><th>WORKER</th><th>NOMINAL</th><th>REKENING TUJUAN</th><th>DIAJUKAN</th><th>STATUS</th><th style="text-align:center;">AKSI</th></tr></thead>
                             <tbody id="payout-table-tbody"></tbody>
                         </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAMPILAN MEETING ROOM -->
+            <div id="admin-meeting-view" class="admin-glass-container" style="display: none; justify-content: flex-start;">
+                <div class="table-view-container">
+                    <div class="table-header-controls">
+                        <h2 class="table-title">MEETING ROOM</h2>
+                        <button type="button" class="btn-back-menu" onclick="document.getElementById('admin-meeting-view').style.display='none'; document.getElementById('admin-carousel-view').style.display='flex';">&larr; KEMBALI</button>
+                    </div>
+                    <div class="admin-tabs">
+                        <button type="button" class="cms-cat-btn active" id="mt-tab-rooms" onclick="switchMeetingTab('rooms')">Room Aktif</button>
+                        <button type="button" class="cms-cat-btn" id="mt-tab-db" onclick="switchMeetingTab('db')">Database Meeting</button>
+                    </div>
+                    <div id="mt-rooms-pane">
+                        <div class="mt-create">
+                            <input type="text" id="mt-new-title" class="setup-input" placeholder="Judul meeting (cth: Briefing Project Web E-Commerce)" maxlength="80">
+                            <button type="button" class="btn-futuristic" id="mt-create-btn">＋ CREATE MEETING ROOM</button>
+                        </div>
+                        <div id="mt-room-list" class="mt-room-list"></div>
+                    </div>
+                    <div id="mt-db-pane" style="display:none;">
+                        <div id="mt-rec-list" class="mt-room-list"></div>
                     </div>
                 </div>
             </div>
@@ -973,11 +998,86 @@
         </ul>
     </div>
 
+    <!-- ===== RUANG MEETING (FULLSCREEN) ===== -->
+    <div id="meet-room" class="meet-room notranslate" translate="no" style="display:none;">
+        <div class="meet-top">
+            <div class="meet-title"><span class="meet-live"></span><strong id="meet-room-title">Meeting</strong><small id="meet-room-meta"></small></div>
+            <div class="meet-top-right"><span id="meet-rec-badge" class="meet-rec-badge" style="display:none;">● REC <span id="meet-rec-time">00:00</span></span><span class="meet-timer" id="meet-timer">00:00:00</span></div>
+        </div>
+        <div class="meet-stage">
+            <div class="meet-main">
+                <div id="meet-grid" class="meet-grid"></div>
+                <div id="meet-wb" class="meet-wb" style="display:none;">
+                    <div class="wb-tools">
+                        <button type="button" data-tool="pen" class="active" title="Pena">✏️</button>
+                        <button type="button" data-tool="eraser" title="Penghapus">🧽</button>
+                        <button type="button" data-tool="line" title="Garis">╱</button>
+                        <button type="button" data-tool="rect" title="Kotak">▭</button>
+                        <button type="button" data-tool="ellipse" title="Lingkaran">◯</button>
+                        <button type="button" data-tool="arrow" title="Panah">➜</button>
+                        <button type="button" data-tool="text" title="Teks">T</button>
+                        <input type="color" id="wb-color" value="#00f2fe" title="Warna">
+                        <input type="range" id="wb-size" min="1" max="24" value="4" title="Ketebalan">
+                        <button type="button" id="wb-undo" title="Undo">↶</button>
+                        <button type="button" id="wb-clear" title="Bersihkan">🗑️</button>
+                        <button type="button" id="wb-save" title="Simpan PNG">💾</button>
+                    </div>
+                    <canvas id="wb-canvas" width="1280" height="720"></canvas>
+                </div>
+            </div>
+            <aside class="meet-side" id="meet-side">
+                <div class="meet-side-tabs"><button type="button" class="active" data-pane="people">Peserta</button><button type="button" data-pane="chat">Chat</button><button type="button" data-pane="invite" id="meet-tab-invite">Undang</button></div>
+                <div class="meet-pane" id="meet-pane-people"></div>
+                <div class="meet-pane" id="meet-pane-chat" style="display:none;"><div id="meet-chat-log" class="meet-chat-log"></div><div class="meet-chat-in"><input type="text" id="meet-chat-input" placeholder="Tulis pesan..."><button type="button" id="meet-chat-send">➤</button></div></div>
+                <div class="meet-pane" id="meet-pane-invite" style="display:none;">
+                    <p class="meet-hint">Undang Customer / Worker dengan ID Nexora:</p>
+                    <div class="meet-chat-in"><input type="text" id="meet-invite-id" placeholder="NEXC-... / NEXW-..."><button type="button" id="meet-invite-btn">＋</button></div>
+                    <div id="meet-invite-list" class="meet-invite-list"></div>
+                </div>
+            </aside>
+        </div>
+        <div class="meet-bar">
+            <button type="button" id="mc-mic" title="Mikrofon">🎤<span>Mic</span></button>
+            <button type="button" id="mc-cam" title="Kamera">📷<span>Kamera</span></button>
+            <button type="button" id="mc-share" title="Bagikan layar">🖥️<span>Share</span></button>
+            <button type="button" id="mc-wb" title="Whiteboard">📝<span>Whiteboard</span></button>
+            <button type="button" id="mc-hand" title="Angkat tangan">✋<span>Tangan</span></button>
+            <button type="button" id="mc-people" title="Panel samping">👥<span>Panel</span></button>
+            <button type="button" id="mc-rec" class="admin-only" title="Rekam (Admin)">⏺️<span>Rekam</span></button>
+            <button type="button" id="mc-leave" class="leave" title="Keluar">🚪<span>Keluar</span></button>
+            <button type="button" id="mc-end" class="end admin-only" title="Akhiri meeting untuk semua">⏹️<span>Akhiri</span></button>
+        </div>
+    </div>
+
+    <!-- Undangan meeting untuk user -->
+    <div id="meet-invite-toast" class="meet-invite-toast" style="display:none;"></div>
+
+    <!-- Modal password hapus rekaman -->
+    <div class="modal-overlay" id="meet-pass-modal" style="z-index: 10003;">
+        <div class="modal-box">
+            <h3 style="color:#ff0055; margin-bottom:10px;">HAPUS REKAMAN MEETING</h3>
+            <p id="meet-pass-msg" style="color:rgba(255,255,255,0.7); font-size:0.9rem; margin-bottom:15px;"></p>
+            <input type="password" id="meet-pass-input" class="admin-input" placeholder="Password penghapusan" autocomplete="off">
+            <div id="meet-pass-err" style="color:#ff0055; font-size:0.8rem; display:none; margin-bottom:10px;">Password salah.</div>
+            <div style="display:flex; gap:10px;"><button type="button" class="btn-back-menu" id="meet-pass-cancel" style="flex:1;">BATAL</button><button type="button" class="btn-futuristic" id="meet-pass-ok" style="flex:1; padding:10px;">HAPUS</button></div>
+        </div>
+    </div>
+
+    <!-- Modal putar rekaman -->
+    <div class="modal-overlay" id="meet-play-modal" style="z-index: 10003;">
+        <div class="modal-box" style="max-width:760px;">
+            <h3 id="meet-play-title" style="color:#00f2fe; margin-bottom:12px;"></h3>
+            <video id="meet-play-video" controls playsinline style="width:100%; border-radius:12px; background:#000; max-height:60vh;"></video>
+            <button type="button" class="btn-back-menu" id="meet-play-close" style="margin-top:14px;">TUTUP</button>
+        </div>
+    </div>
+
     <script src="data.js"></script>
     <script src="script.js"></script>
     <script src="cloud-config.js"></script>
     <script src="persist.js"></script>
     <script src="translate.js"></script>
+    <script src="meeting.js"></script>
     <script>
         // Pengaman: jika persist.js gagal dimuat, aplikasi tetap dijalankan
         setTimeout(function () { if (!window.__nexBooted && typeof window.NexBoot === 'function') window.NexBoot(); }, 4000);

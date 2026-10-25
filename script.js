@@ -94,7 +94,7 @@ window.NexBoot = function () {
     }
 
     function showAdminSub(key) {
-        const views = { orders: viewOrders, worker: viewDataWorker, customer: viewDataCustomer, content: viewManageContent, finance: viewFinance, chat: viewChat, payout: viewPayout };
+        const views = { orders: viewOrders, worker: viewDataWorker, customer: viewDataCustomer, content: viewManageContent, finance: viewFinance, chat: viewChat, payout: viewPayout, meeting: document.getElementById('admin-meeting-view') };
         Object.keys(views).forEach(k => { views[k].style.display = 'none'; });
         viewCarousel.style.display = 'none';
         if (!key || !views[key]) { viewCarousel.style.display = 'flex'; return; }
@@ -107,6 +107,7 @@ window.NexBoot = function () {
             if (key === 'finance') renderFinanceTable();
             if (key === 'chat') renderAdminChatList();
             if (key === 'payout') renderPayoutTable();
+            if (key === 'meeting' && window.openMeetingView) window.openMeetingView();
         } catch (err) {}
     }
 
@@ -264,7 +265,7 @@ window.NexBoot = function () {
             document.getElementById('admin-orders-view').style.display = 'none';
             document.getElementById('admin-data-worker-view').style.display = 'none';
             document.getElementById('admin-data-customer-view').style.display = 'none';
-            document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none'; document.getElementById('admin-payout-view').style.display = 'none';
+            document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none'; document.getElementById('admin-payout-view').style.display = 'none'; document.getElementById('admin-meeting-view').style.display = 'none';
 
             try { renderAdminNotifications(); updateOrderBadge(); } catch(err) {}
             
@@ -287,7 +288,7 @@ window.NexBoot = function () {
         document.getElementById('admin-orders-view').style.display = 'none';
         document.getElementById('admin-data-worker-view').style.display = 'none';
         document.getElementById('admin-data-customer-view').style.display = 'none';
-        document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none'; document.getElementById('admin-payout-view').style.display = 'none';
+        document.getElementById('admin-manage-content-view').style.display = 'none'; document.getElementById('admin-finance-view').style.display = 'none'; document.getElementById('admin-chat-view').style.display = 'none'; document.getElementById('admin-payout-view').style.display = 'none'; document.getElementById('admin-meeting-view').style.display = 'none';
         navigateTo('page-1', 'backward'); 
     });
 
@@ -302,7 +303,7 @@ window.NexBoot = function () {
     const viewPayout = document.getElementById('admin-payout-view');
 
     document.addEventListener('click', function(e) {
-        const mm = e.target && e.target.id && /^btn-menu-(orders|worker|customer|content|finance|chat|payout)$/.exec(e.target.id);
+        const mm = e.target && e.target.id && /^btn-menu-(orders|worker|customer|content|finance|chat|payout|meeting)$/.exec(e.target.id);
         if (mm) pushNav({ page: 'page-3', adm: mm[1], cat: '' });
         if (e.target && e.target.id === 'btn-menu-orders') { 
             viewCarousel.style.display = 'none'; 
@@ -315,6 +316,7 @@ window.NexBoot = function () {
         if (e.target && e.target.id === 'btn-menu-content') { viewCarousel.style.display = 'none'; viewManageContent.style.display = 'flex'; switchCMSTab('video'); }
         if (e.target && e.target.id === 'btn-menu-finance') { viewCarousel.style.display = 'none'; viewFinance.style.display = 'flex'; renderFinanceTable(); }
         if (e.target && e.target.id === 'btn-menu-chat') { viewCarousel.style.display = 'none'; viewChat.style.display = 'flex'; renderAdminChatList(); }
+        if (e.target && e.target.id === 'btn-menu-meeting') { viewCarousel.style.display = 'none'; document.getElementById('admin-meeting-view').style.display = 'flex'; if (window.openMeetingView) window.openMeetingView(); }
         if (e.target && e.target.id === 'btn-menu-payout') { viewCarousel.style.display = 'none'; viewPayout.style.display = 'flex'; renderPayoutTable(); }
     });
 
@@ -437,9 +439,9 @@ window.NexBoot = function () {
                 <td style="color:#fff; font-weight:700;">${escHtml(o.productName)}${workerDisplay}</td>
                 <td style="color:#00f2fe; font-weight:800;">${formatRp(o.nominal)}</td>
                 <td onclick="event.stopPropagation()">
-                    <div style="font-size:0.75rem; color:rgba(255,255,255,0.6);">Mulai: <input type="date" value="${o.startDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'start', this.value)" style="${inputStyle}"></div>
-                    <div style="font-size:0.75rem; color:#ffaa00; margin-top:4px;">Deadline: <input type="date" value="${o.deadlineDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'deadline', this.value)" style="${inputStyle} border-color:#ffaa00;"></div>
-                    <div style="font-size:0.75rem; color:#ff9d4d; margin-top:4px;">Adjust: <input type="date" value="${o.deadlineAdjusted || ''}" min="${o.startDate || ''}" onchange="updateOrderDate('${o.id}', 'adjust', this.value)" style="${inputStyle} border-color:#ff9d4d;"></div>
+                    <div style="font-size:0.75rem; color:rgba(255,255,255,0.6);">Mulai: <input type="date" class="ord-date" onclick="try { this.showPicker(); } catch (err) {}" value="${o.startDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'start', this.value)" style="${inputStyle}"></div>
+                    <div style="font-size:0.75rem; color:#ffaa00; margin-top:4px;">Deadline: <input type="date" class="ord-date" onclick="try { this.showPicker(); } catch (err) {}" value="${o.deadlineDate || ''}" ${locked} onchange="updateOrderDate('${o.id}', 'deadline', this.value)" style="${inputStyle} border-color:#ffaa00;"></div>
+                    <div style="font-size:0.75rem; color:#ff9d4d; margin-top:4px;">Adjust: <input type="date" class="ord-date" onclick="try { this.showPicker(); } catch (err) {}" value="${o.deadlineAdjusted || ''}" min="${o.startDate || ''}" onchange="updateOrderDate('${o.id}', 'adjust', this.value)" style="${inputStyle} border-color:#ff9d4d;"></div>
                 </td>
                 <td><span style="color:${orderStatusColor(o.status)}; font-weight:bold;">${escHtml(o.status)}</span>${evalBadge}</td>
                 <td style="text-align:center;"><button type="button" class="btn-action-sm btn-view" onclick="event.stopPropagation(); openOrderDetailModal('${o.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-view" title="Hubungi Customer" onclick="event.stopPropagation(); contactOrderCustomer('${o.id}')">💬</button><button type="button" class="btn-action-sm btn-del" title="Hapus Pesanan" onclick="event.stopPropagation(); deleteOrder('${o.id}')">🗑️</button></td>
@@ -3172,6 +3174,7 @@ window.NexBoot = function () {
                         if (c.id === 'btn-menu-content') { viewCarousel.style.display = 'none'; viewManageContent.style.display = 'flex'; switchCMSTab('video'); }
                         if (c.id === 'btn-menu-finance') { viewCarousel.style.display = 'none'; viewFinance.style.display = 'flex'; renderFinanceTable(); }
                         if (c.id === 'btn-menu-chat') { viewCarousel.style.display = 'none'; viewChat.style.display = 'flex'; renderAdminChatList(); }
+                        if (c.id === 'btn-menu-meeting') { viewCarousel.style.display = 'none'; document.getElementById('admin-meeting-view').style.display = 'flex'; if (window.openMeetingView) window.openMeetingView(); }
                         if (c.id === 'btn-menu-payout') { viewCarousel.style.display = 'none'; viewPayout.style.display = 'flex'; renderPayoutTable(); }
                     }
                 }
@@ -3219,6 +3222,9 @@ window.NexBoot = function () {
     renderBanners();
     updateChatBadges();
     updatePayoutBadge(); snapPayoutStatus();
+    window.__nexUser = () => currentUser;
+    window.__nexAdminId = () => adminId;
+    setTimeout(() => { window.__nexAppReady = true; document.dispatchEvent(new Event('nex:ready')); }, 0);
     try { history.replaceState({ nex: 1, idx: 0, page: 'page-1', cat: '', adm: '' }, '', location.pathname + location.search); } catch (err) {}
 
     // Dipanggil persist.js saat data dari perangkat lain masuk -> segarkan tampilan yang relevan
@@ -3227,6 +3233,7 @@ window.NexBoot = function () {
         const shown = (el) => el && el.style.display !== 'none';
         const typing = () => { const a = document.activeElement; return a && a.closest && a.closest('#admin-orders-view, #admin-finance-view') && /INPUT|SELECT|TEXTAREA/.test(a.tagName); };
         try {
+            if ((has('meetingRoomsDB') || has('meetingsDB')) && window.nexMeetingChanged) window.nexMeetingChanged();
             if (has('videosDB')) { renderMainVideos(); if (shown(viewManageContent) && currentCMSCategory === 'video' && $id('content-list-view').style.display !== 'none') renderAdminVideoList(); }
             if (has('bannersDB')) { renderBanners(); if (shown(viewManageContent) && currentCMSCategory === 'banner') renderAdminBanners(); }
             if (has('productsDB')) {

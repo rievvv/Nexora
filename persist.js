@@ -1,4 +1,4 @@
-/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB */
+/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB */
 /* =========================================================
    NEXORA - PENYIMPANAN PERMANEN + SINKRONISASI CLOUD
    - Semua database (user, produk, video, banner, pesanan, keuangan, chat)
@@ -15,7 +15,7 @@
 
     var DB_NAME = 'nexora-storage', DB_VER = 1;
     var STATE_KEY = 'state';
-    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB', 'payoutsDB', 'presenceDB'];
+    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB', 'payoutsDB', 'presenceDB', 'meetingRoomsDB', 'meetingsDB'];
 
     var CFG = window.NEX_CLOUD || {};
     var CLOUD = !!(CFG.url && CFG.anonKey && /^https?:\/\//.test(CFG.url));
@@ -38,7 +38,9 @@
             productsDB: productsDB, ordersDB: ordersDB, financeDB: financeDB,
             bannersDB: bannersDB, chatsDB: chatsDB,
             payoutsDB: (typeof payoutsDB !== 'undefined') ? payoutsDB : [],
-            presenceDB: (typeof presenceDB !== 'undefined') ? presenceDB : []
+            presenceDB: (typeof presenceDB !== 'undefined') ? presenceDB : [],
+            meetingRoomsDB: (typeof meetingRoomsDB !== 'undefined') ? meetingRoomsDB : [],
+            meetingsDB: (typeof meetingsDB !== 'undefined') ? meetingsDB : []
         };
     }
     function setState(o) {
@@ -52,6 +54,8 @@
         if (Array.isArray(o.chatsDB)) chatsDB = o.chatsDB;
         if (Array.isArray(o.payoutsDB) && typeof payoutsDB !== 'undefined') payoutsDB = o.payoutsDB;
         if (Array.isArray(o.presenceDB) && typeof presenceDB !== 'undefined') presenceDB = o.presenceDB;
+        if (Array.isArray(o.meetingRoomsDB) && typeof meetingRoomsDB !== 'undefined') meetingRoomsDB = o.meetingRoomsDB;
+        if (Array.isArray(o.meetingsDB) && typeof meetingsDB !== 'undefined') meetingsDB = o.meetingsDB;
     }
     function liveSig() { try { return JSON.stringify(getState()); } catch (e) { return String(Math.random()); } }
 

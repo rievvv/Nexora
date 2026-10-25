@@ -1,4 +1,4 @@
-/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, calculateLevel, calculateCustomerLevel, formatRp */
+/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB, calculateLevel, calculateCustomerLevel, formatRp */
 
 // =========================================
 // DATABASE & LOGIKA LEVELING NEXORA
@@ -56,3 +56,7 @@ let payoutsDB = [];
 
 // DATABASE KEHADIRAN (status online user): { id: ID Nexora, seen: waktu terakhir aktif (ms) }
 let presenceDB = [];
+
+// DATABASE MEETING ROOM: daftar room (aktif/selesai) & rekaman meeting (video + watermark ID Admin)
+let meetingRoomsDB = [];
+let meetingsDB = [];
