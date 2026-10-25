@@ -1061,3 +1061,14 @@ input.has-lvl-ico { background-repeat: no-repeat !important; background-position
 .pv-msg { font-size: 0.75rem; margin: 2px 0 8px; } .pv-msg.err { color: #ff6b8a; } .pv-msg.ok { color: #34A853; } .pv-msg.warn { color: #ffaa00; }
 .pv-sum { display: flex; justify-content: space-between; font-size: 0.78rem; color: rgba(255,255,255,0.7); padding: 2px 0; }
 .pv-sum b { color: #fff; } .pv-sum.disc b { color: #34A853; }
+
+
+/* ---- Perbaikan rendering iPhone/iPad (Safari WebKit): kartu 3D terpotong setengah & kotak blur tidak tergambar ---- */
+.card, .admin-card { -webkit-backface-visibility: hidden; backface-visibility: hidden; }
+@supports (-webkit-touch-callout: none) {
+    .app-wrapper { perspective: none; -webkit-perspective: none; transform-style: flat; -webkit-transform-style: flat; }
+    .scene, .admin-scene { -webkit-perspective: 1200px; perspective: 1200px; }
+    .card, .admin-card { will-change: transform, opacity; -webkit-transform: translateZ(0); }
+    .video-card, .video-section *, .card, .admin-card { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+    .video-card { background: rgba(8, 14, 26, 0.85); }
+}

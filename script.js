@@ -3465,6 +3465,7 @@ window.NexBoot = function () {
     document.getElementById('close-worker-document').addEventListener('click', () => { document.getElementById('worker-document-modal').classList.remove('active'); });
 
     // CAROUSEL SETUP (MEMUTAR 3D SEMPURNA)
+    const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     function initCarousel(carouselId, sceneId, cardClass, activeBorderColor) {
         const carousel = document.getElementById(carouselId); const scene = document.getElementById(sceneId); const cards = document.querySelectorAll(`#${carouselId} .${cardClass}`);
         if(cards.length === 0 || !carousel || !scene) return;
@@ -3509,7 +3510,7 @@ window.NexBoot = function () {
                 let calcBlur = Math.max(0, (diff * kScale) / 8); 
                 let calcOpacity = Math.max(0.1, 1 - ((diff * kScale) / 60));
                 
-                c.style.filter = `blur(${calcBlur}px)`; 
+                c.style.filter = IS_IOS ? 'none' : `blur(${calcBlur}px)`;   // iOS Safari: blur + 3D = kartu terpotong 
                 c.style.opacity = calcOpacity;
                 
                 if (diff < 15) { 
