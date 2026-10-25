@@ -2004,12 +2004,12 @@ window.NexBoot = function () {
         const maxName = isW ? 'UltraXora' : 'NexUltra';
         const perk = (l) => isW ? 'bonus ' + l.bonus : 'diskon ' + l.discount;
         if (lvl.name === maxName) {
-            return `<div class="lvl-prog"><div class="lvl-prog-top"><span>${lvl.medal} ${escHtml(lvl.name)}</span><span>LEVEL TERTINGGI</span></div><div class="progress-container"><div class="progress-fill" style="width:100%;"></div></div><div class="lvl-prog-note">Selamat! Anda sudah mencapai level tertinggi (${perk(lvl)}). EXP Anda: <b>${formatRp(value)}</b></div></div>`;
+            return `<div class="lvl-prog"><div class="lvl-prog-top"><span>${levelIcon(lvl, 22)} ${escHtml(lvl.name)}</span><span>LEVEL TERTINGGI</span></div><div class="progress-container"><div class="progress-fill" style="width:100%;"></div></div><div class="lvl-prog-note">Selamat! Anda sudah mencapai level tertinggi (${perk(lvl)}). EXP Anda: <b>${formatRp(value)}</b></div></div>`;
         }
         const next = calc(lvl.max + 1);
         const need = lvl.max + 1 - value;
         const pct = Math.max(0, Math.min(100, Math.round(value / lvl.max * 100)));
-        return `<div class="lvl-prog"><div class="lvl-prog-top"><span>${lvl.medal} ${escHtml(lvl.name)}</span><span>${next.medal} ${escHtml(next.name)}</span></div><div class="progress-container"><div class="progress-fill" style="width:${pct}%;"></div></div><div class="progress-info"><span>EXP ${formatRp(value)}</span><span>Target ${formatRp(lvl.max + 1)}</span></div><div class="lvl-prog-note">Butuh <b>${formatRp(need)}</b> EXP lagi untuk naik ke <b>${escHtml(next.name)}</b> (${perk(next)})</div></div>`;
+        return `<div class="lvl-prog"><div class="lvl-prog-top"><span>${levelIcon(lvl, 22)} ${escHtml(lvl.name)}</span><span>${levelIcon(next, 22)} ${escHtml(next.name)}</span></div><div class="progress-container"><div class="progress-fill" style="width:${pct}%;"></div></div><div class="progress-info"><span>EXP ${formatRp(value)}</span><span>Target ${formatRp(lvl.max + 1)}</span></div><div class="lvl-prog-note">Butuh <b>${formatRp(need)}</b> EXP lagi untuk naik ke <b>${escHtml(next.name)}</b> (${perk(next)})</div></div>`;
     }
     function refreshLevelProg() {
         if (!currentUser) return;
@@ -2021,13 +2021,19 @@ window.NexBoot = function () {
         if (m && m.classList.contains('active')) renderUserProfile();
     }
 
+    // Input level (read-only) tidak bisa berisi gambar -> tampilkan PNG badge sebagai ikon di dalam kolom
+    function setLvlIco(id, lvl) {
+        const el = document.getElementById(id); if (!el) return;
+        el.classList.add('has-lvl-ico');
+        el.style.backgroundImage = `url("${lvl.icon}")`;
+    }
     function fillDashboard(role, rec) {
         const set = (id, val) => { const el = document.getElementById(id); if (el) el.value = (val === undefined || val === null) ? '' : val; };
         const statusMap = { Waiting: 'Menunggu Tinjauan Admin', Active: 'Aktif', Hold: 'Hold', Worker: 'Worker Aktif', 'On Progress': 'On Progress', Freeze: 'Freeze', Declined: 'Ditolak' };
         const st = statusMap[rec.status] || rec.status || '-';
         if (role === 'customer') {
             const lvl = calculateCustomerLevel(rec.spent || 0);
-            set('dash-c-id', rec.id); set('dash-c-nik', rec.nik || '-'); set('dash-c-level', `${lvl.medal} ${lvl.name} • Diskon ${lvl.discount}`); set('dash-c-status', st);
+            set('dash-c-id', rec.id); set('dash-c-nik', rec.nik || '-'); set('dash-c-level', `${lvl.name} • Diskon ${lvl.discount}`); setLvlIco('dash-c-level', lvl); set('dash-c-status', st);
             set('dash-c-type', rec.type || 'Personal'); set('dash-c-name', rec.name); set('dash-c-business', rec.business); set('dash-c-field', rec.bizField);
             set('dash-c-dob', rec.dob); set('dash-c-email', rec.email); set('dash-c-wa', rec.wa); set('dash-c-website', rec.website);
             set('dash-c-address', rec.address); set('dash-c-city', rec.city); set('dash-c-zip', rec.zip); set('dash-c-bio', rec.bio);
@@ -2036,7 +2042,7 @@ window.NexBoot = function () {
             const b = document.getElementById('btn-dash-save-cust'); if (b) b.disabled = true;
         } else {
             const lvl = calculateLevel(rec.income || 0);
-            set('dash-w-id', rec.id); set('dash-w-nik', rec.nik || '-'); set('dash-w-level', `${lvl.medal} ${lvl.name} • Bonus ${lvl.bonus}`); set('dash-w-balance', formatRp(rec.balance || 0)); set('dash-w-remaining', formatRp(pocketRemaining(rec))); set('dash-w-status', st);
+            set('dash-w-id', rec.id); set('dash-w-nik', rec.nik || '-'); set('dash-w-level', `${lvl.name} • Bonus ${lvl.bonus}`); setLvlIco('dash-w-level', lvl); set('dash-w-balance', formatRp(rec.balance || 0)); set('dash-w-remaining', formatRp(pocketRemaining(rec))); set('dash-w-status', st);
             set('dash-w-name', rec.name); set('dash-w-nick', rec.nickname); set('dash-w-ttl', rec.ttl);
             set('dash-w-email', rec.email); set('dash-w-wa', rec.wa); set('dash-w-address', rec.address); set('dash-w-city', rec.city); set('dash-w-zip', rec.zip);
             set('dash-w-specs', rec.specs); set('dash-w-exp', rec.experience); set('dash-w-avail', rec.availability || 'on'); set('dash-w-tools', rec.tools); set('dash-w-port', rec.portfolio); set('dash-w-bio', rec.bio);
@@ -2128,7 +2134,7 @@ window.NexBoot = function () {
         document.getElementById('up-name').innerText = rec.name;
         document.getElementById('up-id').innerText = rec.id;
         const roleEl = document.getElementById('up-role');
-        roleEl.innerText = (isW ? 'WORKER' : 'CUSTOMER') + ' • ' + lvl.medal + ' ' + lvl.name;
+        roleEl.innerHTML = (isW ? 'WORKER' : 'CUSTOMER') + ' • ' + levelIcon(lvl, 18) + ' ' + escHtml(lvl.name);
         roleEl.style.color = isW ? '#ff0055' : '#00f2fe';
         roleEl.style.borderColor = isW ? '#ff0055' : '#00f2fe';
 
@@ -3051,7 +3057,7 @@ window.NexBoot = function () {
             const avatarHtml = renderAvatarHtml(w.avatar, "O");
             const orderTag = (w.status === 'On Progress' && w.orderId) ? `<br><span style="font-size:0.75rem; color:#00f2fe; font-weight:700;">ID Pesanan: ${escHtml(w.orderId)}</span>` : '';
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${w.id}')">💬${chatDot(w.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openWorkerDoc('${w.id}')">📄</button><button type="button" class="btn-action-sm btn-del" title="Hapus Worker" onclick="deleteWorker('${w.id}')">🗑️</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal img" title="${lvl.name}">${levelIcon(lvl, 34)}</div></div></td><td style="font-weight:700; color:#ffffff;">${w.id}</td><td style="color:#ffffff; font-weight:700;">${w.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${w.status}${orderTag}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${w.id}')">💬${chatDot(w.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openWorkerDoc('${w.id}')">📄</button><button type="button" class="btn-action-sm btn-del" title="Hapus Worker" onclick="deleteWorker('${w.id}')">🗑️</button></td>`;
             tbody.appendChild(tr);
         });
     }
@@ -3075,7 +3081,7 @@ window.NexBoot = function () {
             const tr = document.createElement('tr'); tr.className = "data-row";
             const avatarHtml = renderAvatarHtml(c.avatar, "C");
 
-            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal" style="background:${lvl.color}; border: 1px solid #000;" title="${lvl.name}">${lvl.medal}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${c.id}')">💬${chatDot(c.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Customer" onclick="deleteCustomer('${c.id}')">🗑️</button></td>`;
+            tr.innerHTML = `<td style="display:flex; justify-content:center;"><div class="avatar-wrapper"><div class="avatar-o">${avatarHtml}</div><div class="level-medal img" title="${lvl.name}">${levelIcon(lvl, 34)}</div></div></td><td style="font-weight:700; color:#ffffff;">${c.id}</td><td style="color:#ffffff; font-weight:700;">${c.name}</td><td><span style="color:${lvl.color}; font-weight:800;">${lvl.name}</span></td><td>${c.status}</td><td style="text-align:center;"><button type="button" class="btn-action-sm btn-chat" title="Kirim pesan" onclick="chatWithUser('${c.id}')">💬${chatDot(c.id)}</button><button type="button" class="btn-action-sm btn-view" onclick="openCustomerDetail('${c.id}')">DETAIL</button><button type="button" class="btn-action-sm btn-del" title="Hapus Customer" onclick="deleteCustomer('${c.id}')">🗑️</button></td>`;
             tbodyCust.appendChild(tr);
         });
     };

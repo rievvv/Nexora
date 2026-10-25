@@ -1,4 +1,4 @@
-/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB, calculateLevel, calculateCustomerLevel, formatRp */
+/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB, calculateLevel, calculateCustomerLevel, levelIcon, LEVEL_ICON_DIR, formatRp */
 
 // =========================================
 // DATABASE & LOGIKA LEVELING NEXORA
@@ -11,12 +11,21 @@ let workersDB = [
     { id: "NEXW-950212-002", name: "Budi Santoso", ttl: "Bandung, 12 Feb 1995", joined: "15 Feb 2026", balance: 12000000, income: 45000000, status: "On Progress", freezeDate: "", project: "Web E-Commerce", customer: "PT Maju Bersama", specs: "Web Dev", portfolio: "https://github.com/budis", rekening: "Mandiri 98765 A/N Budi", username: "NEXW-budis", password: "123", wa: "+6289876543210", email: "budi@email.com", avatar: "" }
 ];
 
+// Folder gambar badge level (kosongkan bila PNG berada satu folder dengan index.html; isi mis. "img/" bila di dalam folder)
+const LEVEL_ICON_DIR = "";
+
+// Gambar badge level (PNG). Jika file tidak ditemukan, otomatis kembali ke emoji.
+function levelIcon(lvl, px) {
+    px = px || 20;
+    return '<img class="lvl-ico" src="' + lvl.icon + '" alt="' + lvl.name + '" title="' + lvl.name + '" width="' + px + '" height="' + px + '" style="width:' + px + 'px;height:' + px + 'px;" onerror="this.replaceWith(document.createTextNode(\'' + lvl.medal + '\'))">';
+}
+
 function calculateLevel(income) {
-    if (income <= 10000000) return { name: "MicroXora", bonus: "5%", max: 10000000, pct: (income/10000000)*100, medal: "🥉", color: "#cd7f32" };
-    if (income <= 50000000) return { name: "MacroXora", bonus: "6%", max: 50000000, pct: (income/50000000)*100, medal: "🥈", color: "#64748b" };
-    if (income <= 100000000) return { name: "SuperXora", bonus: "7%", max: 100000000, pct: (income/100000000)*100, medal: "🥇", color: "#d97706" };
-    if (income <= 500000000) return { name: "MegaXora", bonus: "8%", max: 500000000, pct: (income/500000000)*100, medal: "💎", color: "#00f2fe" };
-    return { name: "UltraXora", bonus: "10%", max: income, pct: 100, medal: "👑", color: "#ff0055" };
+    if (income <= 10000000) return { name: "MicroXora", icon: LEVEL_ICON_DIR + "Microxora.png", bonus: "5%", max: 10000000, pct: (income/10000000)*100, medal: "🥉", color: "#cd7f32" };
+    if (income <= 50000000) return { name: "MacroXora", icon: LEVEL_ICON_DIR + "Macroxora.png", bonus: "6%", max: 50000000, pct: (income/50000000)*100, medal: "🥈", color: "#64748b" };
+    if (income <= 100000000) return { name: "SuperXora", icon: LEVEL_ICON_DIR + "Superxora.png", bonus: "7%", max: 100000000, pct: (income/100000000)*100, medal: "🥇", color: "#d97706" };
+    if (income <= 500000000) return { name: "MegaXora", icon: LEVEL_ICON_DIR + "Megaxora.png", bonus: "8%", max: 500000000, pct: (income/500000000)*100, medal: "💎", color: "#00f2fe" };
+    return { name: "UltraXora", icon: LEVEL_ICON_DIR + "Ultraxora.png", bonus: "10%", max: income, pct: 100, medal: "👑", color: "#ff0055" };
 }
 
 let customersDB = [
@@ -25,11 +34,11 @@ let customersDB = [
 ];
 
 function calculateCustomerLevel(spent) {
-    if (spent <= 10000000) return { name: "NexMicro", discount: "1%", max: 10000000, pct: (spent/10000000)*100, medal: "🥉", color: "#cd7f32" };
-    if (spent <= 50000000) return { name: "NexMacro", discount: "2%", max: 50000000, pct: (spent/50000000)*100, medal: "🥈", color: "#64748b" };
-    if (spent <= 100000000) return { name: "NexSuper", discount: "3%", max: 100000000, pct: (spent/100000000)*100, medal: "🥇", color: "#d97706" };
-    if (spent <= 500000000) return { name: "NexMega", discount: "4%", max: 500000000, pct: (spent/500000000)*100, medal: "💎", color: "#00f2fe" };
-    return { name: "NexUltra", discount: "5%", max: spent, pct: 100, medal: "👑", color: "#ff0055" };
+    if (spent <= 10000000) return { name: "NexMicro", icon: LEVEL_ICON_DIR + "NexMicro.png", discount: "1%", max: 10000000, pct: (spent/10000000)*100, medal: "🥉", color: "#cd7f32" };
+    if (spent <= 50000000) return { name: "NexMacro", icon: LEVEL_ICON_DIR + "NexMacro.png", discount: "2%", max: 50000000, pct: (spent/50000000)*100, medal: "🥈", color: "#64748b" };
+    if (spent <= 100000000) return { name: "NexSuper", icon: LEVEL_ICON_DIR + "NexSuper.png", discount: "3%", max: 100000000, pct: (spent/100000000)*100, medal: "🥇", color: "#d97706" };
+    if (spent <= 500000000) return { name: "NexMega", icon: LEVEL_ICON_DIR + "NexMega.png", discount: "4%", max: 500000000, pct: (spent/500000000)*100, medal: "💎", color: "#00f2fe" };
+    return { name: "NexUltra", icon: LEVEL_ICON_DIR + "NexUltra.png", discount: "5%", max: spent, pct: 100, medal: "👑", color: "#ff0055" };
 }
 
 // --- DATABASE KONTEN CMS ---
