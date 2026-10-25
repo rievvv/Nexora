@@ -1,4 +1,4 @@
-/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, adminDB_Login, calculateLevel, calculateCustomerLevel, formatRp */
+/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, vouchersDB, adminDB_Login, calculateLevel, calculateCustomerLevel, formatRp */
 
 window.NexBoot = function () {
     if (window.__nexBooted) return;
@@ -163,6 +163,7 @@ window.NexBoot = function () {
         document.addEventListener('touchcancel', reset, { passive: true });
     })();
 
+    const NAV_MS = (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) ? 560 : 1100;
     window.navigateTo = function(targetPageId, direction = 'forward', fromHistory = false) {
         if (isAnimating || currentPageId === targetPageId) return;
         isAnimating = true;
@@ -206,7 +207,7 @@ window.NexBoot = function () {
             document.body.classList.remove('is-transitioning');
             currentPageId = targetPageId;
             isAnimating = false;
-        }, 1100); 
+        }, NAV_MS); 
     };
 
     document.addEventListener('click', function(e) {
@@ -358,6 +359,7 @@ window.NexBoot = function () {
                 isRead: false,
                 createdAt: Date.now(),
                 category: p.category,
+                kind: productKind(p),
                 baseNominal: basePrice,
                 uniqueCode: uniqueCode,
                 customerId: currentUser.id,
@@ -368,7 +370,7 @@ window.NexBoot = function () {
                 requestedWorkerName: reqW ? reqW.name : ''
             };
 
-            payCtx = { p: p, orderName: orderName, extraWa: extraWa, basePrice: basePrice, uniqueCode: uniqueCode, kind: JASA_CATEGORIES.includes(p.category) ? 'PJ' : 'PE', vid: '' };
+            payCtx = { p: p, orderName: orderName, extraWa: extraWa, basePrice: basePrice, uniqueCode: uniqueCode, kind: productKind(p), vid: '' };
             const waBtn = document.getElementById('btn-wa-order-confirm');
             applyPay(opt.voucherVid || '');
             
@@ -742,6 +744,11 @@ window.NexBoot = function () {
        LAPORAN KEUANGAN
        ========================================= */
     const JASA_CATEGORIES = ['Design', 'Animasi', 'Pajak', 'Audit Finance', 'Pembuatan Website'];
+    // Kategori voucher produk: PJ (Produk Jasa), PE (Produk Elektronik), PF (Produk Fisik) - dipilih Admin saat unggah produk
+    const PROD_KINDS = ['PJ', 'PE', 'PF'];
+    function defaultKindFor(cat) { return JASA_CATEGORIES.includes(cat) ? 'PJ' : 'PE'; }
+    function productKind(p) { return (p && PROD_KINDS.includes(p.vKind)) ? p.vKind : defaultKindFor(p && p.category); }
+    function orderKind(o) { return PROD_KINDS.includes(o && o.kind) ? o.kind : defaultKindFor(o && o.category); }
     const FIN_TYPES = { '10': 'Pemasukan', '20': 'Pengeluaran', '30': 'Hutang', '40': 'Laba', '50': 'Bagi Hasil', '90': 'Lainnya' };
     const fmtLongDate = (iso) => {
         if (!iso) return '-';
@@ -784,8 +791,15 @@ window.NexBoot = function () {
         financeDB.push(row);
         o.financeId = row.id;
         const buyer = findBuyer(o);
-        if (buyer) buyer.spent = (buyer.spent || 0) + o.nominal;
-        if (buyer && !isJasa) buyer.spentPE = (buyer.spentPE || 0) + o.nominal;   // dasar voucher PE
+        if (buyer) {
+            const k = orderKind(o);
+            buyer.spent = (buyer.spent || 0) + o.nominal;
+            if (k === 'PE') buyer.spentPE = (buyer.spentPE || 0) + o.nominal;     // dasar voucher PE
+            if (k === 'PF') buyer.spentPF = (buyer.spentPF || 0) + o.nominal;     // dasar voucher PF
+            // catatan belanja bertanggal -> dasar EXP level per siklus tahunan
+            buyer.spentLog = Array.isArray(buyer.spentLog) ? buyer.spentLog : [];
+            buyer.spentLog.push({ t: Date.now(), a: o.nominal, k: k, o: o.id });
+        }
     }
 
     // Dipanggil saat pesanan Complete: worker bebas lagi + upah worker tercatat sebagai uang keluar
@@ -845,8 +859,14 @@ window.NexBoot = function () {
         rows.forEach(f => {
             if (f.kind === 'pemasukan' && f.orderId) {
                 const o = ordersDB.find(x => x.id === f.orderId);
-                const buyer = o ? findBuyer(o) : null;
-                if (buyer) { buyer.spent = Math.max(0, (buyer.spent || 0) - (f.masuk || 0)); if (!JASA_CATEGORIES.includes(o.category)) buyer.spentPE = Math.max(0, (buyer.spentPE || 0) - (f.masuk || 0)); }
+                const buyer = o ? findBuyer(o) : null;   // tanpa pesanan -> tidak ada pembeli yang dikoreksi
+                if (buyer) {
+                    const amt = f.masuk || 0, k = orderKind(o);
+                    buyer.spent = Math.max(0, (buyer.spent || 0) - amt);
+                    if (k === 'PE') buyer.spentPE = Math.max(0, (buyer.spentPE || 0) - amt);
+                    if (k === 'PF') buyer.spentPF = Math.max(0, (buyer.spentPF || 0) - amt);
+                    if (Array.isArray(buyer.spentLog)) buyer.spentLog = buyer.spentLog.filter(x => x.o !== o.id);
+                }
                 if (o) delete o.financeId;
             }
             if (f.kind === 'upah' && f.orderId) {
@@ -1394,6 +1414,15 @@ window.NexBoot = function () {
         document.getElementById('content-upload-view').style.display = 'none';
         document.getElementById('product-upload-view').style.display = 'none';
         document.getElementById('banner-manage-view').style.display = 'none';
+        document.getElementById('voucher-manage-view').style.display = 'none';
+
+        if(category === 'voucher') {
+            document.getElementById('content-list-view').style.display = 'none';
+            document.getElementById('product-list-view').style.display = 'none';
+            document.getElementById('voucher-manage-view').style.display = 'block';
+            renderAdminVouchers();
+            return;
+        }
 
         if(category === 'banner') {
             document.getElementById('content-list-view').style.display = 'none';
@@ -1450,11 +1479,23 @@ window.NexBoot = function () {
             card.innerHTML = `
                 ${badgeHTML}
                 <div class="video-title">${v.title}</div>
-                <video controls ${v.url ? `src="${v.url}"` : `poster="https://via.placeholder.com/600x337/1a2235/00f2fe?text=Nexora+Video"`}></video>
+                <video controls playsinline preload="none" ${v.url ? `data-src="${v.url}"` : `poster="https://via.placeholder.com/600x337/1a2235/00f2fe?text=Nexora+Video"`}></video>
             `;
             grid.appendChild(card);
         });
+        lazyVideos(grid);
     };
+
+    // Video baru dimuat saat mendekati layar (iPhone Safari: 9 video dimuat sekaligus = berat & lambat)
+    let videoObserver = null;
+    function lazyVideos(root) {
+        const vids = root.querySelectorAll('video[data-src]');
+        const load = (v) => { const u = v.getAttribute('data-src'); v.removeAttribute('data-src'); v.preload = 'metadata'; v.src = /^blob:/.test(u) ? u : u + '#t=0.1'; };
+        if (!('IntersectionObserver' in window)) { vids.forEach(load); return; }
+        if (videoObserver) videoObserver.disconnect();
+        videoObserver = new IntersectionObserver((es) => es.forEach(e => { if (e.isIntersecting) { videoObserver.unobserve(e.target); load(e.target); } }), { rootMargin: '300px 0px' });
+        vids.forEach(v => videoObserver.observe(v));
+    }
 
     window.renderAdminVideoList = function() {
         const grid = document.getElementById('admin-video-list');
@@ -1611,6 +1652,7 @@ window.NexBoot = function () {
                 <div class="product-info">
                     <h4>${p.name}</h4>
                     <p class="price">${productPriceLabel(p)}</p>
+                    <p style="margin-top:6px;"><span class="vk ${productKind(p)}" title="Kategori voucher">${productKind(p)}</span> <small style="color:rgba(255,255,255,0.55);">${V_LABEL[productKind(p)]}</small></p>
                 </div>
                 <div class="admin-vid-actions">
                     <button class="btn-vid-action btn-vid-toggle" onclick="toggleProductStatus('${p.id}', '${category}')">${p.status === 'Available' ? 'MARK SOLD' : 'MARK AVAIL'}</button>
@@ -1635,6 +1677,7 @@ window.NexBoot = function () {
         document.getElementById('up-prod-price').value = '';
         document.getElementById('up-prod-link').value = '';
         document.getElementById('up-prod-desc').value = '';
+        document.getElementById('up-prod-vkind').value = defaultKindFor(currentCMSCategory);
         setPkgRows([]); showPkgWrap(currentCMSCategory);
         validateProductUpload();
     });
@@ -1663,6 +1706,7 @@ window.NexBoot = function () {
                 productsDB[pIndex].price = document.getElementById('up-prod-price').value.replace(/\D/g, '');
                 productsDB[pIndex].link = document.getElementById('up-prod-link').value.trim();
                 productsDB[pIndex].desc = document.getElementById('up-prod-desc').value.trim();
+                productsDB[pIndex].vKind = document.getElementById('up-prod-vkind').value;
                 productsDB[pIndex].packages = JASA_CATEGORIES.includes(productsDB[pIndex].category) ? readPkgRows() : [];
             }
             customAlert("Produk berhasil diperbarui!");
@@ -1674,6 +1718,7 @@ window.NexBoot = function () {
                 price: document.getElementById('up-prod-price').value.replace(/\D/g, ''),
                 link: document.getElementById('up-prod-link').value.trim(),
                 desc: document.getElementById('up-prod-desc').value.trim(),
+                vKind: document.getElementById('up-prod-vkind').value,
                 packages: JASA_CATEGORIES.includes(currentCMSCategory) ? readPkgRows() : [],
                 imgUrl: fileObj ? URL.createObjectURL(fileObj) : '',
                 status: 'Available'
@@ -1718,6 +1763,7 @@ window.NexBoot = function () {
         document.getElementById('up-prod-price').value = String(p.price || '').replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
         document.getElementById('up-prod-link').value = p.link;
         document.getElementById('up-prod-desc').value = p.desc || '';
+        document.getElementById('up-prod-vkind').value = productKind(p);
         setPkgRows(productPackages(p)); showPkgWrap(p.category);
         validateProductUpload();
     };
@@ -1726,6 +1772,8 @@ window.NexBoot = function () {
     let currentOpenMainCategory = "";
 
     window.openMainCategory = function(category) {
+        if (category === '__voucher') { openVoucherArea(); return; }
+        const vv = document.getElementById('main-view-voucher'); if (vv) vv.style.display = 'none';
         if (currentOpenMainCategory !== category) pushNav({ page: 'page-1', cat: category, adm: '' });
         currentOpenMainCategory = category;
         document.getElementById('main-view-default').style.display = 'none';
@@ -1737,6 +1785,7 @@ window.NexBoot = function () {
     window.closeMainCategory = function() {
         currentOpenMainCategory = "";
         document.getElementById('main-view-category').style.display = 'none';
+        const vv = document.getElementById('main-view-voucher'); if (vv) vv.style.display = 'none';
         document.getElementById('main-view-default').style.display = 'block';
     }
 
@@ -1769,6 +1818,74 @@ window.NexBoot = function () {
             grid.appendChild(card);
         });
     }
+
+
+    /* =========================================
+       AREA VOUCHER (diisi Admin di Management Konten, diklaim Customer)
+       ========================================= */
+    function newVoucherCode(kind) {
+        let code, n = 0;
+        do { code = kind + '-' + Math.random().toString(36).slice(2, 7).toUpperCase(); } while (vouchersDB.some(v => v.code === code) && n++ < 50);
+        return code;
+    }
+    function areaVoucherHtml(v, mode, owner) {
+        const got = !!(owner && (owner.vouchers || []).some(x => x.avid === v.id));
+        const btn = mode === 'admin'
+            ? `<button type="button" class="vc-claim del" onclick="deleteAreaVoucher('${v.id}')">HAPUS</button>`
+            : `<button type="button" class="vc-claim${got ? ' done' : ''}" ${got ? 'disabled' : ''} onclick="claimAreaVoucher('${v.id}')">${got ? 'SUDAH DIKLAIM' : 'KLAIM VOUCHER'}</button>`;
+        return `<div class="vc-card ${v.kind} active"><div class="vc-top"><b>${v.kind}</b><span>${V_LABEL[v.kind] || ''}</span></div>
+            <div class="vc-name">${escHtml(v.name)}</div><div class="vc-amt">${formatRp(v.amount)}</div>
+            <div class="vc-code" title="Kode voucher">${escHtml(v.code)}</div>${btn}</div>`;
+    }
+    window.renderAdminVouchers = function() {
+        const box = document.getElementById('admin-voucher-list'); if (!box) return;
+        box.innerHTML = vouchersDB.length ? vouchersDB.slice().reverse().map(v => areaVoucherHtml(v, 'admin')).join('') : '<div class="vc-empty" style="grid-column:1/-1;">Belum ada voucher. Isi form di atas lalu klik TAMBAH VOUCHER.</div>';
+    };
+    window.renderMainVouchers = function() {
+        const grid = document.getElementById('main-voucher-grid'); if (!grid) return;
+        const owner = voucherOwner();
+        grid.innerHTML = vouchersDB.length ? vouchersDB.slice().reverse().map(v => areaVoucherHtml(v, 'user', owner)).join('') : '<div class="empty-video-state" style="grid-column: 1 / -1;">BELUM ADA VOUCHER SAAT INI</div>';
+    };
+    window.openVoucherArea = function() {
+        if (currentOpenMainCategory !== '__voucher') pushNav({ page: 'page-1', cat: '__voucher', adm: '' });
+        currentOpenMainCategory = '__voucher';
+        document.getElementById('main-view-default').style.display = 'none';
+        document.getElementById('main-view-category').style.display = 'none';
+        document.getElementById('main-view-voucher').style.display = 'flex';
+        renderMainVouchers();
+    };
+    window.claimAreaVoucher = function(id) {
+        const v = vouchersDB.find(x => x.id === id); if (!v) return;
+        if (!currentUser) { pendingCategory = '__voucher'; openUserLogin(); return; }
+        const c = voucherOwner();
+        if (!c) { customAlert('Voucher hanya dapat diklaim oleh akun Customer.'); return; }
+        c.vouchers = Array.isArray(c.vouchers) ? c.vouchers : [];
+        if (c.vouchers.some(x => x.avid === v.id)) { customAlert('Anda sudah mengklaim voucher ini.'); return; }
+        const now = new Date(), exp = addMonthsClamped(now.getFullYear(), now.getMonth(), now.getDate(), 12); exp.setHours(23, 59, 59, 999);
+        c.vouchers.push({ vid: 'V' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), code: v.code, kind: v.kind, amount: v.amount, name: v.name, avid: v.id, src: 'area', issued: now.getTime(), expires: exp.getTime(), usedBy: '', usedAt: 0 });
+        renderMainVouchers();
+        try { refreshLoyaltyUI(); } catch (e) {}
+        customAlert('Voucher <b>' + escHtml(v.name) + '</b> masuk ke Kantong Voucher Anda (berlaku 1 tahun).');
+    };
+    window.deleteAreaVoucher = function(id) {
+        askDeletePassword('Hapus <strong>voucher</strong> ini dari Area Voucher? (Voucher yang sudah diklaim customer tetap berlaku)', () => {
+            vouchersDB = vouchersDB.filter(v => v.id !== id);
+            renderAdminVouchers();
+        });
+    };
+    const btnAddVoucher = document.getElementById('btn-add-voucher');
+    if (btnAddVoucher) btnAddVoucher.addEventListener('click', () => {
+        const name = document.getElementById('up-vch-name').value.trim();
+        const kind = document.getElementById('up-vch-kind').value;
+        const amount = parseInt(String(document.getElementById('up-vch-amount').value).replace(/\D/g, ''), 10) || 0;
+        if (!name) { customAlert('Nama voucher wajib diisi.'); return; }
+        if (!PROD_KINDS.includes(kind)) { customAlert('Pilih kode voucher: PJ, PE atau PF.'); return; }
+        if (amount <= 0) { customAlert('Jumlah potongan harus lebih dari 0.'); return; }
+        vouchersDB.push({ id: 'VCH-' + Date.now().toString(36).toUpperCase(), name: name, kind: kind, code: newVoucherCode(kind), amount: amount, createdAt: Date.now() });
+        document.getElementById('up-vch-name').value = ''; document.getElementById('up-vch-amount').value = '';
+        renderAdminVouchers();
+        customAlert('Voucher berhasil ditambahkan ke Area Voucher!');
+    });
 
     /* =========================================
        EDITOR PAKET (ADMIN) + DETAIL PRODUK (USER)
@@ -2093,6 +2210,29 @@ window.NexBoot = function () {
     function daysUntil(d) { return Math.round((d - startOfToday()) / 86400000); }
     function countPassed(j, step) { const t = startOfToday(); let n = 0; while (n < 1200 && addMonthsClamped(j.y, j.mo, j.d, step * (n + 1)) <= t) n++; return n; }
     const pctOf = (txt) => (parseFloat(txt) || 0) / 100;
+    function yearsPassed(j, atDate) { let n = 0; while (n < 200 && addMonthsClamped(j.y, j.mo, j.d, 12 * (n + 1)) <= atDate) n++; return n; }
+
+    /* --- LEVEL DIRESET TIAP TAHUN (patokan: tanggal daftar). EXP level = pendapatan / belanja pada siklus 12 bulan berjalan --- */
+    // Customer: total belanja pada siklus tahun ke-yi (yi = 0 untuk tahun pertama; saldo belanja lama sebelum ada catatan bertanggal dihitung di tahun pertama)
+    function custCycleSpent(c, yi) {
+        const j = parseJoinedDate(c.joined); if (!j) return c.spent || 0;
+        const s0 = yi <= 0 ? 0 : addMonthsClamped(j.y, j.mo, j.d, 12 * yi).getTime();
+        const e0 = addMonthsClamped(j.y, j.mo, j.d, 12 * (yi + 1)).getTime();
+        const log = Array.isArray(c.spentLog) ? c.spentLog : [];
+        let sum = log.reduce((a, x) => a + ((x.t >= s0 && x.t < e0) ? (x.a || 0) : 0), 0);
+        if (yi <= 0) sum += Math.max(0, (c.spent || 0) - log.reduce((a, x) => a + (x.a || 0), 0));
+        return sum;
+    }
+    function custExp(c) { const j = parseJoinedDate(c.joined); return j ? custCycleSpent(c, yearsPassed(j, startOfToday())) : (c.spent || 0); }
+    function custLevel(c) { return calculateCustomerLevel(custExp(c)); }
+    // Worker: pendapatan pada siklus bonus berjalan (sama dengan dasar perhitungan bonus tahunan)
+    function workerExp(w) { const i = workerBonusInfo(w); return i ? i.earned : (w.income || 0); }
+    function workerLevel(w) { return calculateLevel(workerExp(w)); }
+    function nextResetDate(isW, rec) {
+        const j = parseJoinedDate(rec.joined); if (!j) return null;
+        if (isW) { const i = workerBonusInfo(rec); return i ? i.due : null; }
+        return addMonthsClamped(j.y, j.mo, j.d, 12 * (yearsPassed(j, startOfToday()) + 1));
+    }
 
     /* --- Worker: bonus = persen level x pendapatan worker selama 12 bulan siklus --- */
     function workerBonusInfo(w) {
@@ -2104,7 +2244,7 @@ window.NexBoot = function () {
         const a = isoDate(start), b = isoDate(due);
         let earned = financeDB.filter(f => f.kind === 'upah' && f.workerId === w.id && String(f.date) >= a && String(f.date) < b).reduce((x, f) => x + (f.keluar || 0), 0);
         if (passed === 0) earned += (w._baseIncome !== undefined ? w._baseIncome : (w.income || 0));
-        const lvl = calculateLevel(w.income || 0), pct = pctOf(lvl.bonus);
+        const lvl = calculateLevel(earned), pct = pctOf(lvl.bonus);   // level = EXP siklus tahun ini (reset tiap tahun)
         return { k: k, start: start, due: due, earned: earned, lvl: lvl, pct: pct, est: Math.floor(earned * pct), days: daysUntil(due) };
     }
     function processWorkerBonuses(onlyId) {
@@ -2135,10 +2275,10 @@ window.NexBoot = function () {
         const j = parseJoinedDate(c.joined); if (!j) return null;
         const passed = (c.vMonths !== undefined) ? c.vMonths : countPassed(j, 1);
         const due = addMonthsClamped(j.y, j.mo, j.d, passed + 1);
-        const spentPE = c.spentPE || 0, spentPJ = Math.max(0, (c.spent || 0) - spentPE);
-        const cycPJ = Math.max(0, spentPJ - (c.vBasePJ || 0)), cycPE = Math.max(0, spentPE - (c.vBasePE || 0));
-        const lvl = calculateCustomerLevel(c.spent || 0), pct = pctOf(lvl.discount);
-        return { n: passed + 1, due: due, cycPJ: cycPJ, cycPE: cycPE, spentPJ: spentPJ, spentPE: spentPE, lvl: lvl, pct: pct, estPJ: Math.floor(cycPJ * pct), estPE: Math.floor(cycPE * pct), days: daysUntil(due) };
+        const spentPE = c.spentPE || 0, spentPF = c.spentPF || 0, spentPJ = Math.max(0, (c.spent || 0) - spentPE - spentPF);
+        const cycPJ = Math.max(0, spentPJ - (c.vBasePJ || 0)), cycPE = Math.max(0, spentPE - (c.vBasePE || 0)), cycPF = Math.max(0, spentPF - (c.vBasePF || 0));
+        const lvl = calculateCustomerLevel(custCycleSpent(c, Math.floor(passed / 12))), pct = pctOf(lvl.discount);   // level terakhir pada siklus tahun tsb
+        return { n: passed + 1, due: due, cycPJ: cycPJ, cycPE: cycPE, cycPF: cycPF, spentPJ: spentPJ, spentPE: spentPE, spentPF: spentPF, lvl: lvl, pct: pct, estPJ: Math.floor(cycPJ * pct), estPE: Math.floor(cycPE * pct), estPF: Math.floor(cycPF * pct), days: daysUntil(due) };
     }
     function newVoucher(c, kind, amount, issued) {
         const exp = addMonthsClamped(issued.getFullYear(), issued.getMonth(), issued.getDate(), 12); exp.setHours(23, 59, 59, 999);
@@ -2150,7 +2290,7 @@ window.NexBoot = function () {
             if (onlyId && c.id !== onlyId) return;
             if (['Waiting', 'Declined', 'Cancelled'].includes(c.status)) return;
             const j = parseJoinedDate(c.joined); if (!j) return;
-            if (c.vMonths === undefined) { c.vMonths = countPassed(j, 1); c.vBasePJ = 0; c.vBasePE = 0; changed = true; }   // tanpa voucher retroaktif
+            if (c.vMonths === undefined) { c.vMonths = countPassed(j, 1); c.vBasePJ = 0; c.vBasePE = 0; c.vBasePF = 0; changed = true; }   // tanpa voucher retroaktif
             let guard = 0;
             while (guard++ < 24) {
                 const info = custVoucherInfo(c);
@@ -2158,7 +2298,8 @@ window.NexBoot = function () {
                 c.vouchers = Array.isArray(c.vouchers) ? c.vouchers : [];
                 if (info.estPJ > 0) c.vouchers.push(newVoucher(c, 'PJ', info.estPJ, info.due));
                 if (info.estPE > 0) c.vouchers.push(newVoucher(c, 'PE', info.estPE, info.due));
-                c.vBasePJ = info.spentPJ; c.vBasePE = info.spentPE; c.vMonths = info.n; changed = true;
+                if (info.estPF > 0) c.vouchers.push(newVoucher(c, 'PF', info.estPF, info.due));
+                c.vBasePJ = info.spentPJ; c.vBasePE = info.spentPE; c.vBasePF = info.spentPF; c.vMonths = info.n; changed = true;
             }
         });
         return changed;
@@ -2172,7 +2313,7 @@ window.NexBoot = function () {
         if (ch) { try { refreshLevelProg(); } catch (e) {} }
     }
 
-    const V_LABEL = { PJ: 'Produk Jasa', PE: 'Produk Elektronik' };
+    const V_LABEL = { PJ: 'Produk Jasa', PE: 'Produk Elektronik', PF: 'Produk Fisik' };
     const fmtShort = (ts) => new Date(ts).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
     function vState(v) { return v.usedBy ? 'used' : (v.expires < Date.now() ? 'expired' : 'active'); }
     function activeVouchers(c, kind) { return (c && Array.isArray(c.vouchers) ? c.vouchers : []).filter(v => vState(v) === 'active' && (!kind || v.kind === kind)).sort((a, b) => a.expires - b.expires); }
@@ -2205,15 +2346,15 @@ window.NexBoot = function () {
         return `<div class="bn-card cust">
             <div class="bn-top"><span>${levelIcon(i.lvl, 24)} ${escHtml(i.lvl.name)} • Diskon ${escHtml(i.lvl.discount)}</span><span class="bn-days">${i.days > 0 ? 'H-' + i.days : (i.days === 0 ? 'HARI INI' : 'Segera')}</span></div>
             <div class="bn-note">Estimasi voucher potongan yang terbit <b>otomatis</b> pada <b>${fmtDateObj(i.due)}</b> dan berlaku <b>1 tahun</b> sejak diterbitkan.</div>
-            ${line('PJ', i.estPJ, i.cycPJ)}${line('PE', i.estPE, i.cycPE)}
-            <div class="bn-foot">Voucher = diskon level x total belanja siklus bulan ini. PJ hanya untuk produk jasa, PE hanya untuk produk elektronik.</div>
+            ${line('PJ', i.estPJ, i.cycPJ)}${line('PE', i.estPE, i.cycPE)}${line('PF', i.estPF, i.cycPF)}
+            <div class="bn-foot">Voucher = diskon level x total belanja siklus bulan ini. PJ hanya untuk produk jasa, PE hanya untuk produk elektronik, PF hanya untuk produk fisik. Level direset tiap tahun sesuai tanggal daftar Anda.</div>
         </div>`;
     }
     function voucherCardHtml(v) {
         const s = vState(v);
         const stTxt = s === 'active' ? 'AKTIF' : (s === 'used' ? 'TERPAKAI' : 'KADALUARSA');
         return `<div class="vc-card ${v.kind} ${s}"><div class="vc-top"><b>${v.kind}</b><span>${V_LABEL[v.kind]}</span><em>${stTxt}</em></div>
-            <div class="vc-amt">${formatRp(v.amount)}</div>
+            ${v.name ? `<div class="vc-name">${escHtml(v.name)}</div>` : ''}<div class="vc-amt">${formatRp(v.amount)}</div>
             <div class="vc-code" title="Klik untuk menyalin kode" onclick="copyToClipboard('${escHtml(v.code)}')">${escHtml(v.code)}</div>
             <div class="vc-exp">${s === 'used' ? 'Dipakai di pesanan ' + escHtml(v.usedBy) : 'Terbit ' + fmtShort(v.issued) + ' • berlaku s/d ' + fmtShort(v.expires)}</div></div>`;
     }
@@ -2237,7 +2378,13 @@ window.NexBoot = function () {
     }
 
     // Progres EXP menuju level berikutnya (Worker: total pendapatan, Customer: total belanja)
-    function levelProgressHtml(isW, value) {
+    function levelProgressHtml(isW, value, rec) {
+        if (rec) value = isW ? workerExp(rec) : custExp(rec);
+        const rd = rec ? nextResetDate(isW, rec) : null;
+        const note = rd ? `<div class="lvl-prog-reset">🔄 Level & EXP direset otomatis pada <b>${fmtDateObj(rd)}</b>${isW ? ' (bonus level cair ke Pocket)' : ' (voucher terbit tiap bulan)'}</div>` : '';
+        return levelProgressCore(isW, value) + note;
+    }
+    function levelProgressCore(isW, value) {
         value = value || 0;
         const calc = isW ? calculateLevel : calculateCustomerLevel;
         const lvl = calc(value);
@@ -2256,7 +2403,7 @@ window.NexBoot = function () {
         const rec = getCurrentRecord(); if (!rec) return;
         const isW = currentUser.role === 'worker';
         const el = document.getElementById(isW ? 'dash-w-levelprog' : 'dash-c-levelprog');
-        if (el) el.innerHTML = '<label>Progres Level (EXP)</label>' + levelProgressHtml(isW, isW ? rec.income : rec.spent);
+        if (el) el.innerHTML = '<label>Progres Level (EXP)</label>' + levelProgressHtml(isW, 0, rec);
         refreshLoyaltyUI();
         const m = document.getElementById('user-profile-modal');
         if (m && m.classList.contains('active')) renderUserProfile();
@@ -2274,7 +2421,7 @@ window.NexBoot = function () {
         const statusMap = { Waiting: 'Menunggu Tinjauan Admin', Active: 'Aktif', Hold: 'Hold', Worker: 'Worker Aktif', 'On Progress': 'On Progress', Freeze: 'Freeze', Declined: 'Ditolak' };
         const st = statusMap[rec.status] || rec.status || '-';
         if (role === 'customer') {
-            const lvl = calculateCustomerLevel(rec.spent || 0);
+            const lvl = custLevel(rec);
             set('dash-c-id', rec.id); set('dash-c-nik', rec.nik || '-'); set('dash-c-level', `${lvl.name} • Diskon ${lvl.discount}`); setLvlIco('dash-c-level', lvl); set('dash-c-status', st);
             set('dash-c-type', rec.type || 'Personal'); set('dash-c-name', rec.name); set('dash-c-business', rec.business); set('dash-c-field', rec.bizField);
             set('dash-c-dob', rec.dob); set('dash-c-email', rec.email); set('dash-c-wa', rec.wa); set('dash-c-website', rec.website);
@@ -2283,7 +2430,7 @@ window.NexBoot = function () {
             setAvatarPreview('c-avatar-preview', 'c-avatar-text', rec.avatar);
             const b = document.getElementById('btn-dash-save-cust'); if (b) b.disabled = true;
         } else {
-            const lvl = calculateLevel(rec.income || 0);
+            const lvl = workerLevel(rec);
             set('dash-w-id', rec.id); set('dash-w-nik', rec.nik || '-'); set('dash-w-level', `${lvl.name} • Bonus ${lvl.bonus}`); setLvlIco('dash-w-level', lvl); set('dash-w-balance', formatRp(rec.balance || 0)); set('dash-w-remaining', formatRp(pocketRemaining(rec))); set('dash-w-status', st);
             set('dash-w-name', rec.name); set('dash-w-nick', rec.nickname); set('dash-w-ttl', rec.ttl);
             set('dash-w-email', rec.email); set('dash-w-wa', rec.wa); set('dash-w-address', rec.address); set('dash-w-city', rec.city); set('dash-w-zip', rec.zip);
@@ -2371,7 +2518,7 @@ window.NexBoot = function () {
         const rec = getCurrentRecord();
         if (!rec) return;
         const isW = currentUser.role === 'worker';
-        const lvl = isW ? calculateLevel(rec.income || 0) : calculateCustomerLevel(rec.spent || 0);
+        const lvl = isW ? workerLevel(rec) : custLevel(rec);
         document.getElementById('up-avatar').innerHTML = renderAvatarHtml(rec.avatar, escHtml((rec.name || '?').trim().charAt(0).toUpperCase()));
         document.getElementById('up-name').innerText = rec.name;
         document.getElementById('up-id').innerText = rec.id;
@@ -2398,7 +2545,7 @@ window.NexBoot = function () {
         document.getElementById('up-body').innerHTML = `
             <div class="up-stat-grid">${stats}</div>
             <div class="profile-label" style="margin-bottom:5px;">Progres Level (EXP)</div>
-            ${levelProgressHtml(isW, isW ? (rec.income || 0) : (rec.spent || 0))}
+            ${levelProgressHtml(isW, 0, rec)}
             <div class="profile-label" style="margin:14px 0 5px;">${isW ? '🎁 Estimasi Bonus Level' : '🎟️ Estimasi Voucher Level'}</div>
             ${isW ? bonusEstimateHtml(rec) : voucherEstimateHtml(rec)}
             ${isW ? '' : '<div class="profile-label" style="margin:14px 0 5px;">👜 Kantong Voucher</div>' + voucherBagHtml(rec)}
@@ -2433,7 +2580,7 @@ window.NexBoot = function () {
         const isW = role === 'worker';
         const r = (isW ? workersDB : customersDB).find(x => x.id === id);
         if (!r) return;
-        const lvl = isW ? calculateLevel(r.income || 0) : calculateCustomerLevel(r.spent || 0);
+        const lvl = isW ? workerLevel(r) : custLevel(r);
         const statusMap = { Waiting: 'Menunggu Tinjauan Admin', Active: 'Aktif', Hold: 'Hold', Worker: 'Worker Aktif', 'On Progress': 'On Progress', Freeze: 'Freeze', Declined: 'Ditolak', Completed: 'Completed', Cancelled: 'Cancelled' };
         const cell = (l, v, full, raw) => `<div class="ud-cell${full ? ' full' : ''}"><label>${l}</label><div class="v">${raw ? (v || '-') : (v ? escHtml(v) : '<span class="ud-empty">-</span>')}</div></div>`;
         const sec = (t) => `<div class="ud-sec">${t}</div>`;
@@ -2451,7 +2598,7 @@ window.NexBoot = function () {
         } else {
             h += `<div class="ud-stats"><div><label>Total Belanja (Spent)</label><b>${formatRp(r.spent || 0)}</b></div><div><label>Jenis Akun</label><b>${escHtml(r.type || 'Personal')}</b></div><div><label>Bergabung</label><b>${escHtml(r.joined || '-')}</b></div></div>`;
         }
-        h += `<div class="ud-lvl"><div class="profile-label" style="margin-bottom:5px;">Progres Level (EXP)</div>${levelProgressHtml(isW, isW ? (r.income || 0) : (r.spent || 0))}</div>`;
+        h += `<div class="ud-lvl"><div class="profile-label" style="margin-bottom:5px;">Progres Level (EXP)</div>${levelProgressHtml(isW, 0, r)}</div>`;
         h += sec('Akun') + '<div class="ud-grid">' + cell('ID Nexora', r.id) + cell('NIK', r.nik) + cell('Username', r.username) + cell('Status Akun', statusMap[r.status] || r.status) + cell('Waktu Bergabung', r.joined) + '</div>';
         if (isW) {
             h += sec('Data Diri') + '<div class="ud-grid">' + cell('Nama Lengkap (Sesuai KTP)', r.name) + cell('Nama Panggilan / Katalog', r.nickname) + cell('Tempat, Tanggal Lahir', r.ttl, true) + '</div>';
@@ -3358,7 +3505,7 @@ window.NexBoot = function () {
         if(db.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada data.</td></tr>`; return; }
 
         db.forEach(w => {
-            const lvl = calculateLevel(w.income);
+            const lvl = workerLevel(w);
             const tr = document.createElement('tr'); tr.className = "data-row";
             const avatarHtml = renderAvatarHtml(w.avatar, "O");
             const orderTag = (w.status === 'On Progress' && w.orderId) ? `<br><span style="font-size:0.75rem; color:#00f2fe; font-weight:700;">ID Pesanan: ${escHtml(w.orderId)}</span>` : '';
@@ -3383,7 +3530,7 @@ window.NexBoot = function () {
         if(db.length === 0) { tbodyCust.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 20px;">Tidak ada data pelanggan.</td></tr>`; return; }
 
         db.forEach(c => {
-            const lvl = calculateCustomerLevel(c.spent);
+            const lvl = custLevel(c);
             const tr = document.createElement('tr'); tr.className = "data-row";
             const avatarHtml = renderAvatarHtml(c.avatar, "C");
 
@@ -3499,7 +3646,7 @@ window.NexBoot = function () {
         function anim() {
             if (!isD) { const dA = tA - cA; cA = Math.abs(dA) < 0.01 ? tA : cA + dA * 0.09; }
             // Lewati render jika carousel tersembunyi (halaman lain) atau sudah berhenti
-            if (scene.offsetParent === null || cA === lastCA) { requestAnimationFrame(anim); return; }
+            if (cA === lastCA || scene.offsetParent === null) { requestAnimationFrame(anim); return; }
             lastCA = cA;
             carousel.style.transform = `translateZ(${-radius}px) rotateY(${cA}deg)`;
             
@@ -3555,8 +3702,12 @@ window.NexBoot = function () {
             if (has('videosDB')) { renderMainVideos(); if (shown(viewManageContent) && currentCMSCategory === 'video' && $id('content-list-view').style.display !== 'none') renderAdminVideoList(); }
             if (has('bannersDB')) { renderBanners(); if (shown(viewManageContent) && currentCMSCategory === 'banner') renderAdminBanners(); }
             if (has('productsDB')) {
-                if (currentOpenMainCategory) renderMainProducts(currentOpenMainCategory);
-                if (shown(viewManageContent) && currentCMSCategory !== 'video' && currentCMSCategory !== 'banner' && $id('product-list-view').style.display !== 'none') renderAdminProductList(currentCMSCategory);
+                if (currentOpenMainCategory && currentOpenMainCategory !== '__voucher') renderMainProducts(currentOpenMainCategory);
+                if (shown(viewManageContent) && currentCMSCategory !== 'video' && currentCMSCategory !== 'banner' && currentCMSCategory !== 'voucher' && $id('product-list-view').style.display !== 'none') renderAdminProductList(currentCMSCategory);
+            }
+            if (has('vouchersDB') || has('customersDB')) {
+                if (currentOpenMainCategory === '__voucher') renderMainVouchers();
+                if (has('vouchersDB') && shown(viewManageContent) && currentCMSCategory === 'voucher') renderAdminVouchers();
             }
             if (has('workersDB') || has('customersDB')) {
                 updateUserTrigger();

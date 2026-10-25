@@ -1072,3 +1072,29 @@ input.has-lvl-ico { background-repeat: no-repeat !important; background-position
     .video-card, .video-section *, .card, .admin-card { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
     .video-card { background: rgba(8, 14, 26, 0.85); }
 }
+
+/* ===== Voucher: kategori PF, nama voucher, tombol klaim, info reset level ===== */
+.vk.PF, .vc-card.PF .vc-top b { background: rgba(52,168,83,0.16); color: #5bd67a; border: 1px solid rgba(52,168,83,0.55); }
+.vc-card.PF.active { border-color: rgba(52,168,83,0.55); box-shadow: 0 0 16px rgba(52,168,83,0.15); }
+.vc-name { font-size: 0.92rem; font-weight: 800; color: #fff; margin-top: 8px; }
+.vc-claim { width: 100%; margin-top: 10px; padding: 9px; border-radius: 10px; border: 1px solid #00f2fe; background: transparent; color: #00f2fe; font-weight: 800; font-size: 0.78rem; letter-spacing: 1px; cursor: pointer; font-family: inherit; }
+.vc-claim:hover { background: #00f2fe; color: #000; }
+.vc-claim.done { border-color: rgba(255,255,255,0.25); color: rgba(255,255,255,0.45); cursor: default; background: transparent; }
+.vc-claim.del { border-color: #ff0055; color: #ff0055; } .vc-claim.del:hover { background: #ff0055; color: #fff; }
+.lvl-prog-reset { margin-top: 8px; font-size: 0.74rem; color: rgba(255,255,255,0.65); line-height: 1.5; }
+.lvl-prog-reset b { color: #ffaa00; }
+
+/* ===== Performa iPhone / iPad (Safari): kurangi efek yang membebani GPU ===== */
+@supports (-webkit-touch-callout: none) {
+    .ambient-glow { filter: none; animation: none; opacity: 1; background: radial-gradient(circle, rgba(0,242,254,0.13) 0%, rgba(0,242,254,0) 65%); }
+    .cyber-grid { animation: none; }
+    .laser-drop { display: none; }
+    * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+    .modal-overlay { background: rgba(11, 17, 32, 0.94); }
+    .glass-container { box-shadow: none; }
+    .page-container { transition: transform 0.42s cubic-bezier(0.25, 0.8, 0.25, 1), opacity 0.32s ease; will-change: auto; }
+    .slide-center-active { transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease; }
+    .video-card, .product-card { box-shadow: none; transition: none; }
+    body { -webkit-tap-highlight-color: transparent; }
+    a, button, .card, .admin-card, .product-card { touch-action: manipulation; }
+}

@@ -1,4 +1,4 @@
-/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB */
+/* global workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB, vouchersDB */
 /* =========================================================
    NEXORA - PENYIMPANAN PERMANEN + SINKRONISASI CLOUD
    - Semua database (user, produk, video, banner, pesanan, keuangan, chat)
@@ -15,7 +15,7 @@
 
     var DB_NAME = 'nexora-storage', DB_VER = 1;
     var STATE_KEY = 'state';
-    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB', 'payoutsDB', 'presenceDB', 'meetingRoomsDB', 'meetingsDB'];
+    var COLS = ['workersDB', 'customersDB', 'videosDB', 'productsDB', 'ordersDB', 'financeDB', 'bannersDB', 'chatsDB', 'payoutsDB', 'presenceDB', 'meetingRoomsDB', 'meetingsDB', 'vouchersDB'];
 
     var CFG = window.NEX_CLOUD || {};
     var CLOUD = !!(CFG.url && CFG.anonKey && /^https?:\/\//.test(CFG.url));
@@ -29,7 +29,7 @@
     var lastJson = '';
     var saving = false, again = false, saveTimer = null;
     var snap = {}, tombs = [], initialized = false;
-    var lastSig = '', transient = false;
+    var lastSig = '', lastLocalSig = '', transient = false;
 
     /* ---------- state: baca & tulis variabel global dari data.js ---------- */
     function getState() {
@@ -40,7 +40,8 @@
             payoutsDB: (typeof payoutsDB !== 'undefined') ? payoutsDB : [],
             presenceDB: (typeof presenceDB !== 'undefined') ? presenceDB : [],
             meetingRoomsDB: (typeof meetingRoomsDB !== 'undefined') ? meetingRoomsDB : [],
-            meetingsDB: (typeof meetingsDB !== 'undefined') ? meetingsDB : []
+            meetingsDB: (typeof meetingsDB !== 'undefined') ? meetingsDB : [],
+            vouchersDB: (typeof vouchersDB !== 'undefined') ? vouchersDB : []
         };
     }
     function setState(o) {
@@ -56,6 +57,7 @@
         if (Array.isArray(o.presenceDB) && typeof presenceDB !== 'undefined') presenceDB = o.presenceDB;
         if (Array.isArray(o.meetingRoomsDB) && typeof meetingRoomsDB !== 'undefined') meetingRoomsDB = o.meetingRoomsDB;
         if (Array.isArray(o.meetingsDB) && typeof meetingsDB !== 'undefined') meetingsDB = o.meetingsDB;
+        if (Array.isArray(o.vouchersDB) && typeof vouchersDB !== 'undefined') vouchersDB = o.vouchersDB;
     }
     function liveSig() { try { return JSON.stringify(getState()); } catch (e) { return String(Math.random()); } }
 
@@ -159,19 +161,31 @@
         if (extra) Object.keys(extra).forEach(function (k) { h[k] = extra[k]; });
         return h;
     }
+    var remoteAt = 0;   // waktu update terakhir data cloud yang sudah kita ketahui (ms)
     async function remoteGet() {
-        var r = await fetch(BASE + '/rest/v1/nexora_kv?key=eq.' + STATE_KEY + '&select=value', { headers: hdrs(), cache: 'no-store' });
+        var r = await fetch(BASE + '/rest/v1/nexora_kv?key=eq.' + STATE_KEY + '&select=value,updated_at', { headers: hdrs(), cache: 'no-store' });
         if (!r.ok) throw new Error('cloud get ' + r.status);
         var a = await r.json();
+        if (a.length) remoteAt = Date.parse(a[0].updated_at) || remoteAt;
         return a.length ? a[0].value : null;
     }
+    // Cek ringan (hanya kolom updated_at, beberapa byte) apakah ada perubahan dari perangkat lain
+    async function remoteChanged() {
+        var r = await fetch(BASE + '/rest/v1/nexora_kv?key=eq.' + STATE_KEY + '&select=updated_at', { headers: hdrs(), cache: 'no-store' });
+        if (!r.ok) throw new Error('cloud stamp ' + r.status);
+        var a = await r.json();
+        if (!a.length) return false;
+        return (Date.parse(a[0].updated_at) || 0) !== remoteAt;
+    }
     async function remotePut(val) {
+        var stampIso = new Date().toISOString();
         var r = await fetch(BASE + '/rest/v1/nexora_kv', {
             method: 'POST',
             headers: hdrs({ 'Content-Type': 'application/json', Prefer: 'resolution=merge-duplicates,return=minimal' }),
-            body: JSON.stringify([{ key: STATE_KEY, value: val, updated_at: new Date().toISOString() }])
+            body: JSON.stringify([{ key: STATE_KEY, value: val, updated_at: stampIso }])
         });
         if (!r.ok) throw new Error('cloud put ' + r.status);
+        remoteAt = Date.parse(stampIso) || remoteAt;
     }
     function extOf(blob) {
         var t = String(blob.type || '').split('/')[1] || '';
@@ -315,7 +329,10 @@
         try {
             stamp();
             if (CLOUD) await syncCloud(force);
-            else await saveLocal();
+            else {
+                var sg = liveSig();
+                if (force || sg !== lastLocalSig) { await saveLocal(); lastLocalSig = sg; }
+            }
         } catch (e) { /* abaikan; coba lagi di siklus berikutnya */ }
         saving = false;
         if (again) { again = false; saveNow(); }
@@ -331,8 +348,25 @@
         ['click', 'change', 'input', 'keyup', 'touchend'].forEach(function (ev) {
             document.addEventListener(ev, function () { scheduleSave(evDelay); }, true);
         });
-        // Pengaman + penarik data terbaru dari perangkat lain
-        setInterval(function () { if (!document.hidden) scheduleSave(0, CLOUD); }, CLOUD ? POLL_MS : 2000);
+        // Pengaman + penarik data terbaru dari perangkat lain.
+        // Ringan: bila tidak ada perubahan lokal, hanya cek penanda waktu cloud (bukan seluruh data).
+        // Ditunda saat transisi halaman / jari sedang menyentuh layar agar tidak patah di iPhone.
+        var touching = false, lastRemoteCheck = 0;
+        document.addEventListener('touchstart', function () { touching = true; }, { passive: true, capture: true });
+        document.addEventListener('touchend', function () { touching = false; }, { passive: true, capture: true });
+        document.addEventListener('touchcancel', function () { touching = false; }, { passive: true, capture: true });
+        var idle = window.requestIdleCallback || function (fn) { return setTimeout(fn, 60); };
+        setInterval(function () {
+            if (document.hidden || touching || saving || document.body.classList.contains('is-transitioning')) return;
+            idle(async function () {
+                if (!CLOUD) { scheduleSave(0, false); return; }
+                if (liveSig() !== lastSig) { scheduleSave(0, false); return; }          // ada perubahan lokal
+                var now = Date.now();
+                if (now - lastRemoteCheck < POLL_MS - 200) return;
+                lastRemoteCheck = now;
+                try { if (await remoteChanged()) scheduleSave(0, true); } catch (e) { /* offline */ }
+            });
+        }, CLOUD ? POLL_MS : 3000);
         document.addEventListener('visibilitychange', function () { scheduleSave(0, true); });
         window.addEventListener('pagehide', function () { scheduleSave(0, true); });
         window.addEventListener('beforeunload', function () { scheduleSave(0, true); });
@@ -341,6 +375,7 @@
 
     /* ---------- BOOT ---------- */
     async function init() {
+        var hadCache = false;
         try {
             idb = await openDB();
             var stored = await idbGet('kv', STATE_KEY);
@@ -348,21 +383,24 @@
                 var live = await revive(stored);
                 tombs = Array.isArray(live._tomb) ? live._tomb : [];
                 setState(live);
+                hadCache = true;
                 lastJson = JSON.stringify(stored);
             }
             if (navigator.storage && navigator.storage.persist) { navigator.storage.persist().catch(function () {}); }
         } catch (e) {
             idb = null;
         }
-        if (CLOUD) {
+        // Ada cache lokal -> langsung tampil (cloud digabung di latar belakang oleh sinkron pertama).
+        // Belum ada cache (kunjungan pertama di perangkat ini) -> tunggu cloud paling lama 2,5 detik.
+        if (CLOUD && !hadCache) {
             try {
-                var remote = await withTimeout(remoteGet(), 6000);
+                var remote = await withTimeout(remoteGet(), 2500);
                 if (remote) {
                     var local = getState(); local._tomb = tombs;
                     var merged = merge(local, remote);
                     setState(merged); tombs = merged._tomb || [];
                 }
-            } catch (e) { /* offline: pakai data lokal, sinkron saat koneksi kembali */ }
+            } catch (e) { /* offline / lambat: lanjut, sinkron menyusul */ }
         }
         rebuildSnap();
     }

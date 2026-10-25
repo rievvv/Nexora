@@ -522,6 +522,7 @@
                             <div class="card" data-category="Produk Digital"><div class="icon">📦</div><h3>Produk Digital</h3><p>Aset & Template Digital Siap Pakai</p></div>
                             <div class="card" data-category="E-Book"><div class="icon">📚</div><h3>E-Book</h3><p>Koleksi Buku Digital Premium</p></div>
                             <div class="card" data-category="Pembuatan Website"><div class="icon">🌐</div><h3>Pembuatan Website</h3><p>Jasa Pembuatan Website Profesional</p></div>
+                            <div class="card" data-category="__voucher"><div class="icon">🎟️</div><h3>Area Voucher</h3><p>Klaim Voucher Potongan Belanja</p></div>
                         </div>
                     </div>
                     <div class="swipe-instruction">GESER UNTUK MELIHAT MENU</div>
@@ -542,6 +543,15 @@
                     <button class="btn-back-menu" onclick="closeMainCategory()">KEMBALI</button>
                 </div>
                 <div id="main-product-grid" class="product-grid"></div>
+            </div>
+
+            <!-- Sub View Area Voucher -->
+            <div id="main-view-voucher" class="glass-container" style="display: none; min-height: 80vh; justify-content: flex-start;">
+                <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,242,254,0.3); padding-bottom: 20px; margin-bottom: 20px;">
+                    <h2 class="section-title" style="margin: 0; text-align: left;">🎟️ AREA VOUCHER</h2>
+                    <button class="btn-back-menu" onclick="closeMainCategory()">KEMBALI</button>
+                </div>
+                <div id="main-voucher-grid" class="vc-grid" style="width:100%;"></div>
             </div>
 
             <!-- FOOTER HALAMAN UTAMA -->
@@ -757,6 +767,7 @@
                     <div class="cms-category-slider">
                         <button class="cms-cat-btn active" id="cms-tab-video" onclick="switchCMSTab('video')">Video Konten</button>
                         <button class="cms-cat-btn" id="cms-tab-banner" onclick="switchCMSTab('banner')">Banner Iklan</button>
+                        <button class="cms-cat-btn" id="cms-tab-voucher" onclick="switchCMSTab('voucher')">Area Voucher</button>
                         <button class="cms-cat-btn" id="cms-tab-Design" onclick="switchCMSTab('Design')">Design</button>
                         <button class="cms-cat-btn" id="cms-tab-Animasi" onclick="switchCMSTab('Animasi')">Animasi</button>
                         <button class="cms-cat-btn" id="cms-tab-Pajak" onclick="switchCMSTab('Pajak')">Pajak</button>
@@ -808,6 +819,25 @@
                         <div id="admin-banner-list" class="banner-admin-list"></div>
                     </div>
 
+                    <!-- AREA VOUCHER -->
+                    <div id="voucher-manage-view" style="display: none; width: 100%; text-align: left;">
+                        <h3 style="color:#00f2fe; margin-bottom:15px;">AREA VOUCHER</h3>
+                        <p style="color:rgba(255,255,255,0.6); font-size:0.85rem; margin-bottom:15px;">Voucher yang dibuat di sini tampil di halaman <b>Area Voucher</b> dan dapat diklaim Customer ke Kantong Voucher mereka (berlaku 1 tahun sejak diklaim). PJ = Produk Jasa, PE = Produk Elektronik, PF = Produk Fisik.</p>
+                        <div class="form-grid">
+                            <div class="form-group full-width"><label>Nama Voucher <span class="req">*</span></label><input type="text" id="up-vch-name" class="setup-input" placeholder="Cth: Promo Gajian" autocomplete="off"></div>
+                            <div class="form-group"><label>Kode <span class="req">*</span></label>
+                                <select id="up-vch-kind" class="setup-input">
+                                    <option value="PJ">PJ - Produk Jasa</option>
+                                    <option value="PE">PE - Produk Elektronik</option>
+                                    <option value="PF">PF - Produk Fisik</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>Jumlah Potongan (Rp) <span class="req">*</span></label><input type="text" inputmode="numeric" autocomplete="off" id="up-vch-amount" class="setup-input" placeholder="Cth: 50.000" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')"></div>
+                        </div>
+                        <button type="button" id="btn-add-voucher" class="btn-futuristic" style="width:100%; margin: 15px 0 25px;">TAMBAH VOUCHER</button>
+                        <div id="admin-voucher-list" class="vc-grid"></div>
+                    </div>
+
                     <!-- LIST PRODUK -->
                     <div id="product-list-view" style="display: none; width: 100%; text-align: center;">
                         <div class="file-upload-box" id="btn-add-product" style="border-color: #00f2fe; color: #00f2fe; border-style: dashed; padding: 40px; margin-bottom: 20px;">
@@ -827,6 +857,13 @@
                         </label>
                         <div class="form-grid">
                             <div class="form-group full-width"><label>Nama Produk / Jasa <span class="req">*</span></label><input type="text" id="up-prod-name" class="setup-input" placeholder="Cth: Logo Esport Premium"></div>
+                            <div class="form-group full-width"><label>Kategori Produk (menentukan voucher yang bisa dipakai) <span class="req">*</span></label>
+                                <select id="up-prod-vkind" class="setup-input">
+                                    <option value="PJ">PJ - Produk Jasa</option>
+                                    <option value="PE">PE - Produk Elektronik</option>
+                                    <option value="PF">PF - Produk Fisik</option>
+                                </select>
+                            </div>
                             <div class="form-group"><label>Estimasi Harga (Opsional)</label><input type="text" inputmode="numeric" autocomplete="off" id="up-prod-price" class="setup-input" placeholder="Kosongkan jika harga custom" oninput="this.value = this.value.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.')"></div>
                             <div class="form-group"><label>Link Eksternal (Opsional)</label><input type="url" id="up-prod-link" class="setup-input" placeholder="https://... (Kosongkan untuk QRIS Manual)"></div>
                             <div class="form-group full-width"><label>Deskripsi Produk / Jasa</label><textarea id="up-prod-desc" class="setup-input" rows="5" placeholder="Jelaskan produk/jasa: apa yang didapat, proses pengerjaan, ketentuan revisi, dll." style="resize:vertical; font-family:inherit;"></textarea></div>

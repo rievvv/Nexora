@@ -1,4 +1,4 @@
-/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB, calculateLevel, calculateCustomerLevel, levelIcon, levelIconNext, levelIconOk, LEVEL_ICON_DIR, formatRp */
+/* exported adminDB_Login, workersDB, customersDB, videosDB, productsDB, ordersDB, financeDB, bannersDB, chatsDB, payoutsDB, presenceDB, meetingRoomsDB, meetingsDB, vouchersDB, calculateLevel, calculateCustomerLevel, levelIcon, levelIconNext, levelIconOk, LEVEL_ICON_DIR, formatRp */
 
 // =========================================
 // DATABASE & LOGIKA LEVELING NEXORA
@@ -87,3 +87,6 @@ let presenceDB = [];
 // DATABASE MEETING ROOM: daftar room (aktif/selesai) & rekaman meeting (video + watermark ID Admin)
 let meetingRoomsDB = [];
 let meetingsDB = [];
+
+// DATABASE AREA VOUCHER (diisi Admin di Management Konten): { id, name, kind: PJ|PE|PF, code, amount }
+let vouchersDB = [];
